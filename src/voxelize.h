@@ -39,36 +39,53 @@ typedef enum VOX__et {
 
 typedef struct VOX__error {
     VOX__et p_type;
-    void* p_extra_data;
+    VOX__bt p_has_extra_data;
+    union {};
 } VOX__error;
 
-VOX__error VOX__create__error(VOX__et type, void* extra_data) {
+VOX__error VOX__create__error__no_error() {
     VOX__error output;
 
-    output.p_type = type;
-    output.p_extra_data = extra_data;
-
+    output.p_type = VOX__et__no_error;
+    output.p_has_extra_data = VOX__bt__false;
+    
     return output;
 }
 
-VOX__error VOX__create__error__no_error() {
-    return VOX__create__error(VOX__et__no_error, 0);
-}
-
 VOX__error VOX__create__error__sdl2_initialization_failure() {
-    return VOX__create__error(VOX__et__sdl2_initialization_failure, 0);
+    VOX__error output;
+
+    output.p_type = VOX__et__sdl2_initialization_failure;
+    output.p_has_extra_data = VOX__bt__false;
+    
+    return output;
 }
 
 VOX__error VOX__create__error__opengl_window_initialization_failure() {
-    return VOX__create__error(VOX__et__opengl_window_initialization_failure, 0);
+    VOX__error output;
+
+    output.p_type = VOX__et__opengl_window_initialization_failure;
+    output.p_has_extra_data = VOX__bt__false;
+    
+    return output;
 }
 
 VOX__error VOX__create__error__opengl_context_initialization_failure() {
-    return VOX__create__error(VOX__et__opengl_context_initialization_failure, 0);
+    VOX__error output;
+
+    output.p_type = VOX__et__opengl_context_initialization_failure;
+    output.p_has_extra_data = VOX__bt__false;
+    
+    return output;
 }
 
 VOX__error VOX__create__error__glew_initialization_failure() {
-    return VOX__create__error(VOX__et__glew_initialization_failure, 0);
+    VOX__error output;
+
+    output.p_type = VOX__et__glew_initialization_failure;
+    output.p_has_extra_data = VOX__bt__false;
+    
+    return output;
 }
 
 void VOX__destroy__error(VOX__error error) {
