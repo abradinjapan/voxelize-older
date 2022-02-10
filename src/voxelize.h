@@ -14,7 +14,7 @@
 /* Defines */
 // define type
 typedef enum VOX__dt {
-    VOX__dt__keyboard_input_byte_length = 32
+    VOX__dt__opengl_error_info_log_length = 1024
 } VOX__dt;
 
 /* Boolean */
@@ -34,13 +34,18 @@ typedef enum VOX__et {
     VOX__et__sdl2_initialization_failure,
     VOX__et__opengl_window_initialization_failure,
     VOX__et__opengl_context_initialization_failure,
-    VOX__et__glew_initialization_failure
+    VOX__et__glew_initialization_failure,
+
+    // shaders
+    VOX__et__vertex_shader_compilation_failure,
+    VOX__et__fragment_shader_compilation_failure,
+    VOX__et__shader_linking_failure
 } VOX__et;
 
 typedef struct VOX__error {
     VOX__et p_type;
     VOX__bt p_has_extra_data;
-    union {};
+    char* p_opengl_log;
 } VOX__error;
 
 VOX__error VOX__create__error__no_error() {
@@ -88,8 +93,38 @@ VOX__error VOX__create__error__glew_initialization_failure() {
     return output;
 }
 
-void VOX__destroy__error(VOX__error error) {
-    return;
+VOX__error VOX__create__error__vertex_shader_compilation_failure(char* opengl_log) {
+    VOX__error output;
+
+    output.p_type = VOX__et__vertex_shader_compilation_failure;
+    output.p_has_extra_data = VOX__bt__true;
+    output.p_opengl_log = opengl_log;
+    
+    return output;
+}
+
+VOX__error VOX__create__error__fragment_shader_compilation_failure(char* opengl_log) {
+    VOX__error output;
+
+    output.p_type = VOX__et__fragment_shader_compilation_failure;
+    output.p_has_extra_data = VOX__bt__true;
+    output.p_opengl_log = opengl_log;
+    
+    return output;
+}
+
+VOX__error VOX__create__error__shader_linking_failure(char* opengl_log) {
+    VOX__error output;
+
+    output.p_type = VOX__et__shader_linking_failure;
+    output.p_has_extra_data = VOX__bt__true;
+    output.p_opengl_log = opengl_log;
+    
+    return output;
+}
+
+VOX__bt VOX__check__error__has_error_occured(VOX__error* error) {
+    return ((*error).p_type != VOX__et__no_error) == VOX__bt__true;
 }
 
 /* Allocation */
@@ -99,6 +134,23 @@ void* VOX__create__allocation(unsigned long long length) {
 
 void VOX__destroy__allocation(void* allocation, unsigned long long length) {
     free(allocation);
+
+    return;
+}
+
+/* Deallocate Error */
+void VOX__destroy__error(VOX__error error) {
+    if (error.p_has_extra_data == VOX__bt__true) {
+        switch (error.p_type) {
+        case VOX__et__vertex_shader_compilation_failure:
+        case VOX__et__fragment_shader_compilation_failure:
+        case VOX__et__shader_linking_failure:
+            VOX__destroy__allocation(error.p_opengl_log, VOX__dt__opengl_error_info_log_length);
+            break;
+        default:
+            break;
+        }
+    }
 
     return;
 }
@@ -234,6 +286,112 @@ void VOX__close__graphics__old_window(VOX__graphics window) {
     SDL_Quit();
 
     return;
+}
+
+/* Shaders */
+typedef struct VOX__shader {
+    GLuint p_shader_ID;
+    VOX__buffer p_program;
+} VOX__shader;
+
+typedef struct VOX__shaders_program {
+    GLuint p_program_ID;
+    VOX__shader p_vertex_shader;
+    VOX__shader p_fragment_shader;
+} VOX__shaders_program;
+
+VOX__shader VOX__create_null__shader() {
+    VOX__shader output;
+
+    output.p_shader_ID = 0;
+    output.p_program = VOX__create__buffer__add_address(0, 0);
+
+    return output;
+}
+
+VOX__shader VOX__compile__shader(VOX__error* error, VOX__buffer shader_data, GLenum shader_type) {
+    VOX__shader output;
+    VOX__buffer shader_with_null_termination;
+    GLint error_log_length;
+    char* opengl_error_log;
+
+    // setup output
+    output = VOX__create_null__shader();
+
+    // setup shader copy with null termination
+    shader_with_null_termination = VOX__create__buffer_from_buffer__add_null_termination(shader_data);
+
+    // create shader space
+    output.p_shader_ID = glCreateShader(shader_type);
+
+    // send program to gpu
+    glShaderSource(output.p_shader_ID, 1, (const GLchar* const*)&shader_with_null_termination.p_data, NULL);
+
+    // compile shader
+    glCompileShader(output.p_shader_ID);
+
+    // check for errors
+    glGetShaderiv(output.p_shader_ID, GL_INFO_LOG_LENGTH, &error_log_length);
+    if (error_log_length > 0) {
+        opengl_error_log = VOX__create__allocation(sizeof(char) * VOX__dt__opengl_error_info_log_length);
+
+        glGetShaderInfoLog(output.p_shader_ID, VOX__dt__opengl_error_info_log_length, NULL, opengl_error_log);
+
+        if (shader_type == GL_VERTEX_SHADER) {
+            *error = VOX__create__error__vertex_shader_compilation_failure(opengl_error_log);
+        } else if (shader_type == GL_FRAGMENT_SHADER) {
+            *error = VOX__create__error__fragment_shader_compilation_failure(opengl_error_log);
+        }
+    }
+
+    // delete shader copy
+    VOX__destroy__buffer(shader_with_null_termination);
+
+    return output;
+}
+
+VOX__shaders_program VOX__compile__shaders_program(VOX__error* error, VOX__buffer vertex_shader, VOX__buffer fragment_shader) {
+    VOX__shaders_program output;
+    GLint error_log_length;
+    char* opengl_error_log;
+
+    // setup output
+    output.p_program_ID = 0;
+    output.p_vertex_shader = VOX__create_null__shader();
+    output.p_fragment_shader = VOX__create_null__shader();
+    
+    // compile shaders
+    output.p_vertex_shader = VOX__compile__shader(error, vertex_shader, GL_VERTEX_SHADER);
+    if (VOX__check__error__has_error_occured(error) == VOX__bt__true) {
+        return output;
+    }
+
+    output.p_fragment_shader = VOX__compile__shader(error, fragment_shader, GL_FRAGMENT_SHADER);
+    if (VOX__check__error__has_error_occured(error) == VOX__bt__true) {
+        return output;
+    }
+
+    // create shader program
+    output.p_program_ID = glCreateProgram();
+
+    // setup shader linking
+    glAttachShader(output.p_program_ID, output.p_vertex_shader.p_shader_ID);
+    glAttachShader(output.p_program_ID, output.p_fragment_shader.p_shader_ID);
+    
+    // link shaders
+    glLinkProgram(output.p_program_ID);
+    
+    // check for errors
+    glGetProgramiv(output.p_program_ID, GL_LINK_STATUS, &error_log_length);
+    if (error_log_length > 0) {
+        opengl_error_log = VOX__create__allocation(sizeof(char) * VOX__dt__opengl_error_info_log_length);
+
+        glGetProgramInfoLog(output.p_program_ID, VOX__dt__opengl_error_info_log_length, NULL, opengl_error_log);
+
+        *error = VOX__create__error__shader_linking_failure(opengl_error_log);
+    }
+
+    return output;
 }
 
 /* Events */
