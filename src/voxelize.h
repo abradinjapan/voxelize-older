@@ -192,7 +192,7 @@ void VOX__copy__bytes_to_bytes(void* source, unsigned long long length, void* de
     return;
 }
 
-/* Buffer */
+/* Buffer - A Pointer With A Length */
 typedef struct VOX__buffer {
     void* p_data;
     unsigned long long p_length;
@@ -253,7 +253,7 @@ void VOX__destroy__buffer(VOX__buffer buffer) {
     return;
 }
 
-/* Graphics */
+/* Graphics - Getting Window Open */
 typedef struct VOX__window_configuration {
     VOX__buffer p_title;
     int p_width;
@@ -341,7 +341,7 @@ void VOX__close__graphics__old_window(VOX__graphics window) {
     return;
 }
 
-/* Shaders */
+/* Shaders - Programming The GPU */
 typedef struct VOX__shader {
     GLuint p_shader_ID;
     VOX__buffer p_program;
@@ -463,7 +463,7 @@ void VOX__close__shaders(VOX__shaders_program shaders_program) {
     return;
 }
 
-/* 3D Positions */
+/* 3D Positions - 3D Coordinate Datum */
 typedef struct VOX__3D_position {
     float p_x;
     float p_y;
@@ -481,7 +481,7 @@ VOX__3D_position VOX__create__3D_position(float x, float y, float z) {
     return output;
 }
 
-/* Vertex */
+/* Vertex - One OpenGL Vertex */
 typedef struct VOX__vbo_vertex {
     VOX__3D_position p_coordinate;
 } VOX__vbo_vertex;
@@ -503,7 +503,7 @@ void VOX__send__vbo_attributes() {
     return;
 }
 
-/* Vertices */
+/* Vertices - Multiple OpenGL Vertices */
 typedef struct VOX__vbo_vertices {
     VOX__buffer p_vertices;
     unsigned long long p_vertex_count;
@@ -551,7 +551,7 @@ void VOX__destroy__vbo_vertices(VOX__vbo_vertices vbo_vertices) {
     return;
 }
 
-/* Element */
+/* Element - One OpenGL Elements Buffer Vertex */
 typedef struct VOX__ebo_vertex {
     GLuint p_index;
 } VOX__ebo_vertex;
@@ -565,7 +565,7 @@ VOX__ebo_vertex VOX__create__ebo_vertex(GLuint index) {
     return output;
 }
 
-/* Elements */
+/* Elements - Multiple Element Vertices */
 typedef struct VOX__ebo_vertices {
     VOX__buffer p_elements;
     unsigned long long p_element_count;
@@ -613,7 +613,7 @@ void VOX__destroy__ebo_vertices(VOX__ebo_vertices ebo_vertices) {
     return;
 }
 
-/* Object Datum */
+/* Object Datum - One Drawable Piece's Data */
 typedef struct VOX__object_datum {
     VOX__vbo_vertices p_vertices;
     VOX__ebo_vertices p_elements;
@@ -636,7 +636,7 @@ void VOX__destroy__object_datum(VOX__object_datum object_datum) {
     return;
 }
 
-/* Object Data */
+/* Object Data - Multiple Object Pieces as One Object */
 typedef struct VOX__object_data {
     VOX__buffer p_datums;
     unsigned long long p_datums_count;
@@ -684,7 +684,7 @@ void VOX__destroy__object_data(VOX__object_data object_data) {
     return;
 }
 
-/* OpenGL Object Handle */
+/* OpenGL Object Handle - One OpenGL Vertex Array Object Handle & Multiple OpenGL Buffer Handles */
 typedef struct VOX__opengl_object_handle {
     VOX__buffer p_vbos;
     VOX__buffer p_ebos;
@@ -712,7 +712,7 @@ VOX__opengl_object_handle VOX__open__opengl_object_handle(unsigned long long exp
     // setup output
     output = VOX__create_null__opengl_object_handle();
 
-    // crete joint allocation
+    // create joint allocation
     joint_allocation = VOX__create__buffer(single_buffer_length * 2);
 
     // setup allocations
@@ -724,8 +724,8 @@ VOX__opengl_object_handle VOX__open__opengl_object_handle(unsigned long long exp
 
     // initialize opengl buffers
     glGenVertexArrays(1, &(output.p_vao));
-    glCreateBuffers(expected_buffer_pairs_count, output.p_vbos.p_data);
-    glCreateBuffers(expected_buffer_pairs_count, output.p_ebos.p_data);
+    glGenBuffers(expected_buffer_pairs_count, output.p_vbos.p_data);
+    glGenBuffers(expected_buffer_pairs_count, output.p_ebos.p_data);
 
     return output;
 }
@@ -776,18 +776,18 @@ void VOX__close__opengl_object_handle(VOX__opengl_object_handle opengl_object_ha
     return;
 }
 
-/* Drawable Object */
+/* Drawable Object - OpenGL Object RAM Copy & OpenGL Object Handles - For One Object */
 typedef struct VOX__drawable_object {
     VOX__object_data p_object_data;
     VOX__opengl_object_handle p_handle;
 } VOX__drawable_object;
 
-VOX__drawable_object VOX__open__drawable_object(VOX__object_data object_data) {
+VOX__drawable_object VOX__open__drawable_object__object_data(VOX__object_data object_data) {
     VOX__drawable_object output;
 
     // setup object and data
     output.p_object_data = object_data;
-    output.p_handle = VOX__open__opengl_object_handle(1);
+    output.p_handle = VOX__open__opengl_object_handle(object_data.p_datums_count);
 
     return output;
 }
@@ -826,6 +826,9 @@ void VOX__draw__drawable_object(VOX__drawable_object drawable_object) {
         // bind current vbo and ebo buffers
         VOX__draw__bind__vbo_and_ebo(drawable_object.p_handle, i);
 
+        // tell gpu layout of vertices
+        VOX__send__vbo_attributes();
+
         // draw current vbo and ebo buffers
         glDrawElements(GL_TRIANGLES, ((VOX__object_datum*)drawable_object.p_object_data.p_datums.p_data)[i].p_elements.p_element_count, GL_UNSIGNED_INT, 0);
 
@@ -845,7 +848,7 @@ void VOX__close__drawable_object(VOX__drawable_object drawable_object) {
     return;
 }
 
-/* Testing */
+/* Testing - Functions Testing Code */
 VOX__object_datum VOX__create__test__object_datum__square(float scale, float x_screen_offset, float y_screen_offset) {
     VOX__object_datum output;
 
@@ -922,7 +925,21 @@ VOX__object_data VOX__create__test__object_data_from_object_datum(VOX__object_da
     return output;
 }
 
-/* Events */
+VOX__object_data VOX__create__test__object_data_from_3_object_datum(VOX__object_datum object_datum_1, VOX__object_datum object_datum_2, VOX__object_datum object_datum_3) {
+    VOX__object_data output;
+
+    // setup output
+    output = VOX__create__object_data(3);
+
+    // write datums
+    VOX__write__object_datum_to_object_data(output, 0, object_datum_1);
+    VOX__write__object_datum_to_object_data(output, 1, object_datum_2);
+    VOX__write__object_datum_to_object_data(output, 2, object_datum_3);
+
+    return output;
+}
+
+/* Events - User Input */
 typedef struct VOX__keyboard_input {
     unsigned char p_quit;
 } VOX__keyboard_input;
@@ -954,7 +971,7 @@ VOX__keyboard_input VOX__create__keyboard_input__from_sdl2_events() {
     return output;
 }
 
-/* Game Loop */
+/* Game Loop - Run Actual Game */
 void VOX__play(VOX__error* error) {
     VOX__window_configuration configuration;
     VOX__graphics graphics;
@@ -973,7 +990,7 @@ void VOX__play(VOX__error* error) {
     vertex_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nlayout (location = 0) in vec3 p_position_attribute;\nvoid main() {\n\tgl_Position = vec4(p_position_attribute, 1.0f);\n}");
     fragment_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nout vec4 p_fragment_color;\nvoid main() {\n\tp_fragment_color = vec4(1.0, 1.0, 0.0, 1.0);\n}");
 
-    // setup congifuration
+    // setup configuration
     configuration = VOX__create__window_configuration(title, 720, 480, 0);
 
     // open window
@@ -993,8 +1010,8 @@ void VOX__play(VOX__error* error) {
     glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
 
     // create data
-    pattern = VOX__open__drawable_object(VOX__create__test__object_data_from_object_datum(VOX__create__test__object_datum__pattern(-0.5f, 0.0f, 0.0f)));
-    
+    pattern = VOX__open__drawable_object__object_data(VOX__create__test__object_data_from_3_object_datum(VOX__create__test__object_datum__square(0.1f, -0.5f, -0.5f), VOX__create__test__object_datum__square(0.5f, 0.0f, 0.0f), VOX__create__test__object_datum__square(0.25f, 0.5f, 0.5f)));
+
     // send data to gpu
     VOX__send__drawable_object_to_opengl(pattern);
     
