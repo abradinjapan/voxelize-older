@@ -192,6 +192,20 @@ void VOX__copy__bytes_to_bytes(void* source, unsigned long long length, void* de
     return;
 }
 
+/* Strings */
+unsigned long long VOX__string__length_without_null(char* string_start) {
+    unsigned long long output;
+
+    // setup output
+    output = 0;
+
+    while (string_start[output] != 0) {
+        output++;
+    }
+
+    return output;
+}
+
 /* Buffer - A Pointer With A Length */
 typedef struct VOX__buffer {
     void* p_data;
@@ -876,43 +890,6 @@ VOX__object_datum VOX__create__test__object_datum__square(float scale, float x_s
     return output;
 }
 
-VOX__object_datum VOX__create__test__object_datum__pattern(float scale, float x_screen_offset, float y_screen_offset) {
-    VOX__object_datum output;
-
-    // setup output
-    output = VOX__create_null__object_datum();
-
-    // setup vertex & element buffers
-    output.p_vertices = VOX__create__vbo_vertices(8);
-    output.p_elements = VOX__create__ebo_vertices(12);
-
-    // fill vbo buffer
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 0, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset, y_screen_offset, 0.0f)));
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 1, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset + (scale / 2.0f), y_screen_offset, 0.0f)));
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 2, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset, y_screen_offset + (scale / 2.0f), 0.0f)));
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 3, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset + (scale / 2.0f), y_screen_offset + (scale / 2.0f), 0.0f)));
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 4, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset, y_screen_offset, 0.0f)));
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 5, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset + (scale / 2.0f) + 0.5f, y_screen_offset, 0.0f)));
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 6, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset, y_screen_offset + (scale / 2.0f) + 0.5f, 0.0f)));
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 7, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset + (scale / 2.0f) + 0.5f, y_screen_offset + (scale / 2.0f) + 0.5f, 0.0f)));
-
-    // fill ebo buffer
-    VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 0, VOX__create__ebo_vertex(0));
-    VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 1, VOX__create__ebo_vertex(1));
-    VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 2, VOX__create__ebo_vertex(2));
-    VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 3, VOX__create__ebo_vertex(3));
-    VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 4, VOX__create__ebo_vertex(1));
-    VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 5, VOX__create__ebo_vertex(2));
-    VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 6, VOX__create__ebo_vertex(4));
-    VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 7, VOX__create__ebo_vertex(5));
-    VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 8, VOX__create__ebo_vertex(6));
-    VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 9, VOX__create__ebo_vertex(7));
-    VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 10, VOX__create__ebo_vertex(5));
-    VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 11, VOX__create__ebo_vertex(6));
-
-    return output;
-}
-
 VOX__object_data VOX__create__test__object_data_from_object_datum(VOX__object_datum object_datum) {
     VOX__object_data output;
 
@@ -921,20 +898,6 @@ VOX__object_data VOX__create__test__object_data_from_object_datum(VOX__object_da
 
     // write datum
     VOX__write__object_datum_to_object_data(output, 0, object_datum);
-
-    return output;
-}
-
-VOX__object_data VOX__create__test__object_data_from_3_object_datum(VOX__object_datum object_datum_1, VOX__object_datum object_datum_2, VOX__object_datum object_datum_3) {
-    VOX__object_data output;
-
-    // setup output
-    output = VOX__create__object_data(3);
-
-    // write datums
-    VOX__write__object_datum_to_object_data(output, 0, object_datum_1);
-    VOX__write__object_datum_to_object_data(output, 1, object_datum_2);
-    VOX__write__object_datum_to_object_data(output, 2, object_datum_3);
 
     return output;
 }
@@ -983,8 +946,8 @@ void VOX__play(VOX__error* error) {
     VOX__drawable_object pattern;
 
     // setup title
-    title.p_data = (void*)"Hello Cubic World!";
-    title.p_length = 18;
+    title.p_data = (void*)"Voxelize!";
+    title.p_length = VOX__string__length_without_null(title.p_data);
 
     // setup shaders
     vertex_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nlayout (location = 0) in vec3 p_position_attribute;\nvoid main() {\n\tgl_Position = vec4(p_position_attribute, 1.0f);\n}");
@@ -1010,7 +973,7 @@ void VOX__play(VOX__error* error) {
     glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
 
     // create data
-    pattern = VOX__open__drawable_object__object_data(VOX__create__test__object_data_from_3_object_datum(VOX__create__test__object_datum__square(0.1f, -0.5f, -0.5f), VOX__create__test__object_datum__square(0.5f, 0.0f, 0.0f), VOX__create__test__object_datum__square(0.25f, 0.5f, 0.5f)));
+    pattern = VOX__open__drawable_object__object_data(VOX__create__test__object_data_from_object_datum(VOX__create__test__object_datum__square(1.0f, -0.5f, -0.5f)));
 
     // send data to gpu
     VOX__send__drawable_object_to_opengl(pattern);
