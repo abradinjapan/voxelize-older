@@ -477,6 +477,22 @@ void VOX__close__shaders(VOX__shaders_program shaders_program) {
     return;
 }
 
+/* 2D Positions - 2D Coordinate Datum */
+typedef struct VOX__2D_position {
+    float p_x;
+    float p_y;
+} VOX__2D_position;
+
+VOX__2D_position VOX__create__2D_position(float x, float y) {
+    VOX__2D_position output;
+
+    // setup output
+    output.p_x = x;
+    output.p_y = y;
+
+    return output;
+}
+
 /* 3D Positions - 3D Coordinate Datum */
 typedef struct VOX__3D_position {
     float p_x;
@@ -493,6 +509,48 @@ VOX__3D_position VOX__create__3D_position(float x, float y, float z) {
     output.p_z = z;
 
     return output;
+}
+
+/* Texture */
+typedef struct VOX__texture_array {
+    VOX__buffer p_textures;
+    unsigned long long p_single_texture_width;
+    unsigned long long p_single_texture_height;
+    unsigned long long p_texel_byte_size;
+    unsigned long long p_texture_count;
+    GLenum p_texture_type;
+} VOX__texture_array;
+
+VOX__texture_array VOX__create__texture_array(unsigned long long texture_count, unsigned long long single_texture_width, unsigned long long single_texture_height, unsigned long long texel_byte_size, GLenum texture_type) {
+    VOX__texture_array output;
+
+    // setup textures buffer
+    output.p_textures = VOX__create__buffer(texture_count * single_texture_width * single_texture_height * texel_byte_size);
+
+    // setup other data
+    output.p_single_texture_width = single_texture_width;
+    output.p_single_texture_height = single_texture_height;
+    output.p_texture_count = texture_count;
+    output.p_texture_type = texture_type;
+    output.p_texel_byte_size = texel_byte_size;
+
+    return output;
+}
+
+void VOX__destroy__texture_array(VOX__texture_array texture_array) {
+    VOX__destroy__buffer(texture_array.p_textures);
+
+    return;
+}
+
+unsigned long long VOX__calculate__texture_offset_in_texture_array(VOX__texture_array texture_array, unsigned long long index) {
+    return texture_array.p_single_texture_height * texture_array.p_single_texture_width * texture_array.p_texel_byte_size * index;
+}
+
+void VOX__write__texture_to_texture_array(VOX__texture_array texture_array, VOX__buffer texture_data, unsigned long long index) {
+    VOX__copy__bytes_to_bytes(texture_data.p_data, texture_data.p_length, texture_array.p_textures.p_data + VOX__calculate__texture_offset_in_texture_array(texture_array, index));
+
+    return;
 }
 
 /* Vertex - One OpenGL Vertex */
