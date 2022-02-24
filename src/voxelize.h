@@ -49,6 +49,7 @@ typedef struct VOX__error {
     VOX__et p_type;
     VOX__bt p_has_extra_data;
     char* p_opengl_log;
+    GLenum p_opengl_error_code;
 } VOX__error;
 
 VOX__error VOX__create__error__no_error() {
@@ -57,6 +58,8 @@ VOX__error VOX__create__error__no_error() {
     // setup output
     output.p_type = VOX__et__no_error;
     output.p_has_extra_data = VOX__bt__false;
+    output.p_opengl_log = 0;
+    output.p_opengl_error_code = GL_NO_ERROR;
     
     return output;
 }
@@ -101,35 +104,38 @@ VOX__error VOX__create__error__glew_initialization_failure() {
     return output;
 }
 
-VOX__error VOX__create__error__vertex_shader_compilation_failure(char* opengl_log) {
+VOX__error VOX__create__error__vertex_shader_compilation_failure(char* opengl_log, GLenum opengl_error_code) {
     VOX__error output;
 
     // setup output
     output.p_type = VOX__et__vertex_shader_compilation_failure;
     output.p_has_extra_data = VOX__bt__true;
     output.p_opengl_log = opengl_log;
+    output.p_opengl_error_code = opengl_error_code;
     
     return output;
 }
 
-VOX__error VOX__create__error__fragment_shader_compilation_failure(char* opengl_log) {
+VOX__error VOX__create__error__fragment_shader_compilation_failure(char* opengl_log, GLenum opengl_error_code) {
     VOX__error output;
 
     // setup output
     output.p_type = VOX__et__fragment_shader_compilation_failure;
     output.p_has_extra_data = VOX__bt__true;
     output.p_opengl_log = opengl_log;
+    output.p_opengl_error_code = opengl_error_code;
     
     return output;
 }
 
-VOX__error VOX__create__error__shader_linking_failure(char* opengl_log) {
+VOX__error VOX__create__error__shader_linking_failure(char* opengl_log, GLenum opengl_error_code) {
     VOX__error output;
 
     // setup output
     output.p_type = VOX__et__shader_linking_failure;
     output.p_has_extra_data = VOX__bt__true;
     output.p_opengl_log = opengl_log;
+    output.p_opengl_error_code = opengl_error_code;
     
     return output;
 }
@@ -143,7 +149,9 @@ VOX__error VOX__try_create__error__other_opengl() {
 
     if (opengl_error != GL_NO_ERROR) {
         output.p_type = VOX__et__other_opengl;
-        output.p_has_extra_data = VOX__bt__false;
+        output.p_has_extra_data = VOX__bt__true;
+        output.p_opengl_log = 0;
+        output.p_opengl_error_code = opengl_error;
     } else {
         return VOX__create__error__no_error();
     }
@@ -153,6 +161,22 @@ VOX__error VOX__try_create__error__other_opengl() {
 
 VOX__bt VOX__check__error__has_error_occured(VOX__error* error) {
     return ((*error).p_type != VOX__et__no_error) == VOX__bt__true;
+}
+
+void VOX__print__error(VOX__error error) {
+    printf("Voxelize Error Code: %llu\n", (unsigned long long)error.p_type);
+
+    if (error.p_has_extra_data == VOX__bt__true) {
+        if (error.p_opengl_error_code != GL_NO_ERROR) {
+            printf("OpenGL Error Code: %llu\n", (unsigned long long)error.p_opengl_error_code);
+        }
+
+        if (error.p_opengl_log != 0) {
+            printf("OpenGL Error Log:\n\t%s\n", error.p_opengl_log);
+        }
+    }
+
+    return;
 }
 
 /* Allocation */
@@ -406,9 +430,9 @@ VOX__shader VOX__compile__shader(VOX__error* error, VOX__buffer shader_data, GLe
         glGetShaderInfoLog(output.p_shader_ID, VOX__dt__opengl_error_info_log_length, NULL, opengl_error_log);
 
         if (shader_type == GL_VERTEX_SHADER) {
-            *error = VOX__create__error__vertex_shader_compilation_failure(opengl_error_log);
+            *error = VOX__create__error__vertex_shader_compilation_failure(opengl_error_log, glGetError());
         } else if (shader_type == GL_FRAGMENT_SHADER) {
-            *error = VOX__create__error__fragment_shader_compilation_failure(opengl_error_log);
+            *error = VOX__create__error__fragment_shader_compilation_failure(opengl_error_log, glGetError());
         }
     }
 
@@ -457,7 +481,7 @@ VOX__shaders_program VOX__compile__shaders_program(VOX__error* error, VOX__buffe
 
         glGetProgramInfoLog(output.p_program_ID, VOX__dt__opengl_error_info_log_length, NULL, opengl_error_log);
 
-        *error = VOX__create__error__shader_linking_failure(opengl_error_log);
+        *error = VOX__create__error__shader_linking_failure(opengl_error_log, glGetError());
     }
 
     return output;
@@ -511,66 +535,36 @@ VOX__3D_position VOX__create__3D_position(float x, float y, float z) {
     return output;
 }
 
-/* Texture */
-typedef struct VOX__texture_array {
-    VOX__buffer p_textures;
-    unsigned long long p_single_texture_width;
-    unsigned long long p_single_texture_height;
-    unsigned long long p_texel_byte_size;
-    unsigned long long p_texture_count;
-    GLenum p_texture_type;
-} VOX__texture_array;
-
-VOX__texture_array VOX__create__texture_array(unsigned long long texture_count, unsigned long long single_texture_width, unsigned long long single_texture_height, unsigned long long texel_byte_size, GLenum texture_type) {
-    VOX__texture_array output;
-
-    // setup textures buffer
-    output.p_textures = VOX__create__buffer(texture_count * single_texture_width * single_texture_height * texel_byte_size);
-
-    // setup other data
-    output.p_single_texture_width = single_texture_width;
-    output.p_single_texture_height = single_texture_height;
-    output.p_texture_count = texture_count;
-    output.p_texture_type = texture_type;
-    output.p_texel_byte_size = texel_byte_size;
-
-    return output;
-}
-
-void VOX__destroy__texture_array(VOX__texture_array texture_array) {
-    VOX__destroy__buffer(texture_array.p_textures);
-
-    return;
-}
-
-unsigned long long VOX__calculate__texture_offset_in_texture_array(VOX__texture_array texture_array, unsigned long long index) {
-    return texture_array.p_single_texture_height * texture_array.p_single_texture_width * texture_array.p_texel_byte_size * index;
-}
-
-void VOX__write__texture_to_texture_array(VOX__texture_array texture_array, VOX__buffer texture_data, unsigned long long index) {
-    VOX__copy__bytes_to_bytes(texture_data.p_data, texture_data.p_length, texture_array.p_textures.p_data + VOX__calculate__texture_offset_in_texture_array(texture_array, index));
-
-    return;
-}
-
 /* Vertex - One OpenGL Vertex */
 typedef struct VOX__vbo_vertex {
-    VOX__3D_position p_coordinate;
+    VOX__3D_position p_positional_coordinate;
+    VOX__2D_position p_texture_coordinate;
+    GLuint p_texture_number;
 } VOX__vbo_vertex;
 
-VOX__vbo_vertex VOX__create__vbo_vertex(VOX__3D_position coordinate) {
+VOX__vbo_vertex VOX__create__vbo_vertex(VOX__3D_position positional_coordinate, VOX__2D_position texture_coordinate, GLuint texture_number) {
     VOX__vbo_vertex output;
 
     // setup output
-    output.p_coordinate = coordinate;
+    output.p_positional_coordinate = positional_coordinate;
+    output.p_texture_coordinate = texture_coordinate;
+    output.p_texture_number = texture_number;
 
     return output;
 }
 
 void VOX__send__vbo_attributes() {
-    // positions
+    // physical positions
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VOX__vbo_vertex), (void*)0);
     glEnableVertexAttribArray(0);
+
+    // texture positions
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(VOX__vbo_vertex), (void*)sizeof(VOX__3D_position));
+    glEnableVertexAttribArray(1);
+
+    // texture numbers
+    glVertexAttribPointer(2, 1, GL_UNSIGNED_INT, GL_FALSE, sizeof(VOX__vbo_vertex), (void*)(sizeof(VOX__3D_position) + sizeof(VOX__2D_position)));
+    glEnableVertexAttribArray(2);
 
     return;
 }
@@ -920,8 +914,122 @@ void VOX__close__drawable_object(VOX__drawable_object drawable_object) {
     return;
 }
 
+/* 2D Texture Array */
+typedef struct VOX__2D_texture_array {
+    VOX__buffer p_textures;
+    unsigned long long p_single_texture_width;
+    unsigned long long p_single_texture_height;
+    unsigned long long p_texel_byte_count;
+    unsigned long long p_texture_count;
+    GLenum p_texture_type;
+} VOX__2D_texture_array;
+
+VOX__2D_texture_array VOX__create__2D_texture_array(unsigned long long texture_count, unsigned long long single_texture_width, unsigned long long single_texture_height, unsigned long long texel_byte_count, GLenum texture_type) {
+    VOX__2D_texture_array output;
+
+    // setup textures buffer
+    output.p_textures = VOX__create__buffer(texture_count * single_texture_width * single_texture_height * texel_byte_count);
+
+    // setup other data
+    output.p_single_texture_width = single_texture_width;
+    output.p_single_texture_height = single_texture_height;
+    output.p_texel_byte_count = texel_byte_count;
+    output.p_texture_count = texture_count;
+    output.p_texture_type = texture_type;
+
+    return output;
+}
+
+unsigned long long VOX__calculate__2D_texture_offset_in_2D_texture_array(VOX__2D_texture_array texture_array, unsigned long long index) {
+    return texture_array.p_single_texture_height * texture_array.p_single_texture_width * texture_array.p_texel_byte_count * index;
+}
+
+void VOX__write__2D_texture_data_to_2D_texture_array(VOX__2D_texture_array texture_array, VOX__buffer texture_data, unsigned long long index) {
+    VOX__copy__bytes_to_bytes(texture_data.p_data, texture_data.p_length, texture_array.p_textures.p_data + VOX__calculate__2D_texture_offset_in_2D_texture_array(texture_array, index));
+
+    return;
+}
+
+void VOX__destroy__2D_texture_array(VOX__2D_texture_array texture_array) {
+    VOX__destroy__buffer(texture_array.p_textures);
+
+    return;
+}
+
+/* Game Textures */
+// game textures type
+typedef enum VOX__gtt {
+    VOX__gtt__block_faces
+} VOX__gtt;
+
+typedef struct VOX__game_textures {
+    // texture data
+    VOX__2D_texture_array p_block_faces;
+
+    // texture handles
+    GLuint p_block_faces_handle;
+
+    // active textures
+    GLenum p_block_faces_texture_ID;
+} VOX__game_textures;
+
+VOX__game_textures VOX__open__game_textures(VOX__2D_texture_array block_faces) {
+    VOX__game_textures output;
+
+    // setup texture data
+    output.p_block_faces = block_faces;
+
+    // setup texture handles
+    glCreateTextures(block_faces.p_texture_type, 1, &(output.p_block_faces_handle));
+
+    // setup active textures
+    output.p_block_faces_texture_ID = GL_TEXTURE0 + 0;
+
+    return output;
+}
+
+void VOX__draw__bind__specific_game_textures_texture(VOX__game_textures game_textures, VOX__gtt game_textures_type) {
+    switch (game_textures_type) {
+    case VOX__gtt__block_faces:
+        glActiveTexture(game_textures.p_block_faces_texture_ID);
+        glBindTexture(game_textures.p_block_faces.p_texture_type, game_textures.p_block_faces_handle);
+        break;
+    }
+}
+
+void VOX__draw__unbind__specific_game_textures_texture(VOX__game_textures game_textures, VOX__gtt game_textures_type) {
+    switch (game_textures_type) {
+    case VOX__gtt__block_faces:
+        glBindTexture(game_textures.p_block_faces.p_texture_type, 0);
+        break;
+    }
+}
+
+void VOX__send__game_textures_to_opengl(VOX__game_textures game_textures) {
+    // send block textures
+    VOX__draw__bind__specific_game_textures_texture(game_textures, VOX__gtt__block_faces);
+    glTexParameteri(game_textures.p_block_faces.p_texture_type, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(game_textures.p_block_faces.p_texture_type, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(game_textures.p_block_faces.p_texture_type, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(game_textures.p_block_faces.p_texture_type, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage3D(game_textures.p_block_faces.p_texture_type, 0, GL_RGBA8, game_textures.p_block_faces.p_single_texture_width, game_textures.p_block_faces.p_single_texture_height, game_textures.p_block_faces.p_texture_count, 0, GL_RGBA, GL_UNSIGNED_BYTE, game_textures.p_block_faces.p_textures.p_data);
+    VOX__draw__unbind__specific_game_textures_texture(game_textures, VOX__gtt__block_faces);
+
+    return;
+}
+
+void VOX__close__game_textures(VOX__game_textures game_textures) {
+    // destroy data on cpu
+    VOX__destroy__2D_texture_array(game_textures.p_block_faces);
+
+    // destroy data on gpu
+    glDeleteTextures(1, &(game_textures.p_block_faces_handle));
+
+    return;
+}
+
 /* Testing - Functions Testing Code */
-VOX__object_datum VOX__create__test__object_datum__square(float scale, float x_screen_offset, float y_screen_offset) {
+VOX__object_datum VOX__create__test__object_datum__square(float scale, float x_screen_offset, float y_screen_offset, GLuint texture_number) {
     VOX__object_datum output;
 
     // setup output
@@ -932,10 +1040,10 @@ VOX__object_datum VOX__create__test__object_datum__square(float scale, float x_s
     output.p_elements = VOX__create__ebo_vertices(6);
 
     // fill vbo buffer
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 0, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset, y_screen_offset, 0.0f)));
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 1, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset + scale, y_screen_offset, 0.0f)));
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 2, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset, y_screen_offset + scale, 0.0f)));
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 3, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset + scale, y_screen_offset + scale, 0.0f)));
+    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 0, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset, y_screen_offset, 0.0f), VOX__create__2D_position(0.0f, 0.0f), texture_number));
+    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 1, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset + scale, y_screen_offset, 0.0f), VOX__create__2D_position(1.0f, 0.0f), texture_number));
+    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 2, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset, y_screen_offset + scale, 0.0f), VOX__create__2D_position(0.0f, 1.0f), texture_number));
+    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 3, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset + scale, y_screen_offset + scale, 0.0f), VOX__create__2D_position(1.0f, 1.0f), texture_number));
 
     // fill ebo buffer
     VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 0, VOX__create__ebo_vertex(0));
@@ -960,6 +1068,69 @@ VOX__object_data VOX__create__test__object_data_from_object_datum(VOX__object_da
     return output;
 }
 
+VOX__game_textures VOX__create__test__game_textures__1() {
+    VOX__2D_texture_array block_faces;
+    unsigned char test_texture_1[] = {
+        0, 0, 0, 255,
+        0, 0, 255, 255,
+        0, 0, 255, 255,
+        0, 0, 255, 255
+    };
+    unsigned char test_texture_2[] = {
+        0, 0, 0, 255,
+        0, 255, 0, 255,
+        0, 255, 0, 255,
+        0, 255, 0, 255
+    };
+
+    // setup block faces
+    block_faces = VOX__create__2D_texture_array(2, 2, 2, 4, GL_TEXTURE_2D_ARRAY);
+    VOX__write__2D_texture_data_to_2D_texture_array(block_faces, VOX__create__buffer__add_address((void*)&test_texture_1, sizeof(test_texture_1)), 0);
+    VOX__write__2D_texture_data_to_2D_texture_array(block_faces, VOX__create__buffer__add_address((void*)&test_texture_2, sizeof(test_texture_2)), 1);
+
+    return VOX__open__game_textures(block_faces);
+}
+
+VOX__shaders_program VOX__create__test__shaders_program__1(VOX__error* error) {
+    VOX__shaders_program output;
+    VOX__buffer vertex_shader;
+    VOX__buffer fragment_shader;
+
+    // create code
+    vertex_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nlayout (location = 0) in vec3 l_position_attribute;\nlayout (location = 1) in vec2 l_texture_position_attribute;\nlayout (location = 2) in uint l_texture_number_attribute;\nout vec2 pass_texture_coordinates;\nflat out uint pass_texture_number;\nvoid main() {\n\tpass_texture_coordinates = l_texture_position_attribute;\n\tpass_texture_number = l_texture_number_attribute;\n\tgl_Position = vec4(l_position_attribute, 1.0f);\n}");
+    fragment_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nin vec2 pass_texture_coordinates;\nflat in uint pass_texture_number;\nuniform usampler2DArray u_sampler_2D_array;\nout vec4 pass_fragment_color;\nvoid main() {\n\tpass_fragment_color = texture(u_sampler_2D_array, vec3(pass_texture_coordinates, float(pass_texture_number)));\n}");
+
+    // compile shaders
+    output = VOX__compile__shaders_program(error, vertex_shader, fragment_shader);
+
+    // destroy code
+    VOX__destroy__buffer(vertex_shader);
+    VOX__destroy__buffer(fragment_shader);
+
+    return output;
+}
+
+VOX__shaders_program VOX__create__test__shaders_program__playground(VOX__error* error) {
+    VOX__shaders_program output;
+    VOX__buffer vertex_shader;
+    VOX__buffer fragment_shader;
+
+    // create code
+    vertex_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nlayout (location = 0) in vec3 l_position_attribute;\nlayout (location = 1) in vec2 l_texture_position_attribute;\nlayout (location = 2) in uint l_texture_number_attribute;\nout vec2 pass_texture_coordinates;\nflat out uint pass_texture_number;\nvoid main() {\n\tpass_texture_coordinates = l_texture_position_attribute;\n\tpass_texture_number = l_texture_number_attribute;\n\tgl_Position = vec4(l_position_attribute, 1.0f);\n}");
+    fragment_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nin vec2 pass_texture_coordinates;\nflat in uint pass_texture_number;\nout vec4 pass_fragment_color;\nvoid main() {\n\tpass_fragment_color = vec4(1.0f, 0.0f, 1.0f, 1.0f);\n}");
+    //vertex_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nlayout (location = 0) in vec3 l_position_attribute;\nlayout (location = 1) in vec2 l_texture_position_attribute;\nlayout (location = 2) in uint l_texture_number_attribute;\nvoid main() {\n\tgl_Position = vec4(l_position_attribute, 1.0f);\n}");
+    //fragment_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nout vec4 pass_fragment_color;\nvoid main() {\n\tpass_fragment_color = vec4(1.0f, 0.0f, 1.0f, 1.0f);\n}");
+
+    // compile shaders
+    output = VOX__compile__shaders_program(error, vertex_shader, fragment_shader);
+
+    // destroy code
+    VOX__destroy__buffer(vertex_shader);
+    VOX__destroy__buffer(fragment_shader);
+
+    return output;
+}
+
 /* Events - User Input */
 typedef struct VOX__keyboard_input {
     unsigned char p_quit;
@@ -979,7 +1150,7 @@ VOX__keyboard_input VOX__create__keyboard_input__from_sdl2_events() {
     SDL_Event e;
     SDL_Event* e_pointer;
 
-    // setup variables;
+    // setup variables
     e_pointer = &e;
 
     // get all events
@@ -999,41 +1170,39 @@ void VOX__play(VOX__error* error) {
     VOX__keyboard_input keyboard_input;
     VOX__buffer title;
     VOX__shaders_program shaders_program;
-    VOX__buffer vertex_shader;
-    VOX__buffer fragment_shader;
     VOX__drawable_object pattern;
+    VOX__game_textures game_textures;
 
     // setup title
-    title.p_data = (void*)"Voxelize!";
-    title.p_length = VOX__string__length_without_null(title.p_data);
+    title = VOX__create__buffer_copy_from_c_string("Voxelize!");
 
-    // setup shaders
-    vertex_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nlayout (location = 0) in vec3 p_position_attribute;\nvoid main() {\n\tgl_Position = vec4(p_position_attribute, 1.0f);\n}");
-    fragment_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nout vec4 p_fragment_color;\nvoid main() {\n\tp_fragment_color = vec4(1.0, 1.0, 0.0, 1.0);\n}");
-
-    // setup configuration
+    // setup window configuration
     configuration = VOX__create__window_configuration(title, 720, 480, 0);
 
     // open window
     graphics = VOX__open__graphics__new_window(error, configuration);
 
     // setup opengl shaders
-    shaders_program = VOX__compile__shaders_program(error, vertex_shader, fragment_shader);
+    shaders_program = VOX__create__test__shaders_program__1(error);
     if (VOX__check__error__has_error_occured(error) == VOX__bt__true) {
-        return;
+        goto VOX__label__quit_game__shader_failure;
     }
 
     // user shaders
     VOX__use__use_shaders(shaders_program);
 
-    // setup opengl
+    // setup textures
+    game_textures = VOX__create__test__game_textures__1();
+
+    // setup opengl settings
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
+    glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
 
     // create data
-    pattern = VOX__open__drawable_object__object_data(VOX__create__test__object_data_from_object_datum(VOX__create__test__object_datum__square(1.0f, -0.5f, -0.5f)));
+    pattern = VOX__open__drawable_object__object_data(VOX__create__test__object_data_from_object_datum(VOX__create__test__object_datum__square(1.0f, -0.5f, -0.5f, 0)));
 
     // send data to gpu
+    VOX__send__game_textures_to_opengl(game_textures);
     VOX__send__drawable_object_to_opengl(pattern);
     
     // run window
@@ -1043,27 +1212,37 @@ void VOX__play(VOX__error* error) {
         
         // check if should quit
         if (keyboard_input.p_quit == VOX__bt__true) {
-            break;
+            goto VOX__label__quit_game;
         }
 
         // clear window
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // display square
+        VOX__draw__bind__specific_game_textures_texture(game_textures, VOX__gtt__block_faces);
+        glUniform1i(glGetUniformLocation(shaders_program.p_program_ID, "u_sampler_2D_array"), 0);
         VOX__draw__drawable_object(pattern);
+        VOX__draw__unbind__specific_game_textures_texture(game_textures, VOX__gtt__block_faces);
 
         *error = VOX__try_create__error__other_opengl();
         if (VOX__check__error__has_error_occured(error) == VOX__bt__true) {
-            return;
+            goto VOX__label__quit_game;
         }
 
         // display new buffer
         SDL_GL_SwapWindow(graphics.p_window_context);
     }
 
+    VOX__label__quit_game:
+
+    // clean up textures
+    VOX__close__game_textures(game_textures);
+
     // clean up drawable objects
     VOX__destroy__object_data(pattern.p_object_data);
     VOX__close__drawable_object(pattern);
+
+    VOX__label__quit_game__shader_failure:
 
     // clean up opengl
     VOX__close__shaders(shaders_program);
@@ -1071,8 +1250,7 @@ void VOX__play(VOX__error* error) {
     VOX__destroy__window_configuration(configuration);
 
     // clean up extra buffers
-    VOX__destroy__buffer(vertex_shader);
-    VOX__destroy__buffer(fragment_shader);
+    VOX__destroy__buffer(title);
 
     return;
 }

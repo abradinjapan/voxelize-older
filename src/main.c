@@ -12,10 +12,13 @@ int main() {
     VOX__play(&error);
 
     // print error code
-    printf("Error Code: %llu\nError Log: \n%s\n", (unsigned long long)error.p_type, error.p_opengl_log);
-
+    VOX__print__error(error);
+    
     // tell player game is done
     printf("Thanks for playing!\n");
+
+    // clean up
+    VOX__destroy__error(error);
 
     return 0;
 }
