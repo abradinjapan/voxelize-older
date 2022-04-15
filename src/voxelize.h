@@ -6,10 +6,12 @@
 #include <GL/glew.h>
 #include <GL/gl.h>
 #include <SDL2/SDL.h>
+#include <cglm/cglm.h>
 
 // C Standard Library
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 
 /* Defines */
 // define type
@@ -21,7 +23,7 @@ typedef enum VOX__dt {
 // boolean type
 typedef enum VOX__bt {
     VOX__bt__false,
-    VOX__bt__true,
+    VOX__bt__true
 } VOX__bt;
 
 /* Error */
@@ -1028,8 +1030,78 @@ void VOX__close__game_textures(VOX__game_textures game_textures) {
     return;
 }
 
+/* Camera */
+typedef struct VOX__camera {
+    float p_yaw;
+    float p_pitch;
+    vec3 p_position;
+    versor p_angle;
+    mat4 p_matrix_identity;
+    mat4 p_model;
+    mat4 p_view;
+    mat4 p_projection;
+    mat4 p_change;
+} VOX__camera;
+
+VOX__camera VOX__create__camera() {
+    VOX__camera output;
+
+    // camera starting position
+    output.p_yaw = 0.0f;
+    output.p_pitch = 0.0f;
+    glm_vec3_zero(output.p_position);
+    glm_quat_identity(output.p_angle);
+    glm_mat4_identity(output.p_matrix_identity);
+    glm_mat4_identity(output.p_model);
+    glm_mat4_identity(output.p_view);
+    glm_mat4_identity(output.p_projection);
+    glm_mat4_identity(output.p_change);
+
+    return output;
+}
+
+VOX__camera VOX__move__camera(VOX__camera camera, VOX__3D_position camera_position_change, VOX__3D_position camera_rotation_change) {
+    vec3 direction;
+    vec3 front;
+
+    // adjust camera data
+    camera.p_position[0] += camera_position_change.p_x;
+    camera.p_position[1] += camera_position_change.p_y;
+    camera.p_position[2] += camera_position_change.p_z;
+    camera.p_yaw = camera_rotation_change.p_x;
+    camera.p_pitch = camera_rotation_change.p_y;
+
+    // calculate direction
+    direction[0] = cosf(glm_rad(camera.p_yaw)) * cosf(glm_rad(camera.p_pitch));
+    direction[1] = sinf(glm_rad(camera.p_pitch));
+    direction[2] = sinf(glm_rad(camera.p_yaw)) * cosf(glm_rad(camera.p_pitch));
+
+    // normalize direction
+    glm_vec3_norm(direction);
+
+    // calculate camera matrices
+    if (camera_rotation_change.p_x != 0) {
+        glm_quatv(camera.p_angle, glm_rad(camera.p_yaw), (vec3){ 1.0f, 0.0f, 0.0f });
+        glm_quat_rotate(camera.p_model, camera.p_angle, camera.p_model);
+    }
+    if (camera_rotation_change.p_y != 0) {
+        glm_quatv(camera.p_angle, glm_rad(camera.p_pitch), (vec3){ 0.0f, 1.0f, 0.0f });
+        glm_quat_rotate(camera.p_model, camera.p_angle, camera.p_model);
+    }
+    glm_vec3_add(camera.p_position, (vec3){ 0.0f, 0.0f, -1.0f }, front);
+    glm_lookat(camera.p_position, front, (vec3){ 0.0f, 1.0f, 0.0f }, camera.p_view);
+    glm_perspective(glm_rad(45.0f), 720.0 / 480.0, 0.1f, 100.0f, camera.p_projection);
+    
+    // prepare matrices for gpu
+    glm_mat4_mul(camera.p_projection, camera.p_view, camera.p_change);
+    glm_mat4_mul(camera.p_change, camera.p_model, camera.p_change);
+
+    // return changed camera
+    return camera;
+}
+
 /* Testing - Functions Testing Code */
-VOX__object_datum VOX__create__test__object_datum__square(float scale, float x_screen_offset, float y_screen_offset, GLuint texture_number) {
+VOX__object_datum VOX__create__test__object_datum__square(float scale, float x_screen_offset, float y_screen_offset, float z_screen_offset, GLuint texture_number) {
     VOX__object_datum output;
 
     // setup output
@@ -1040,10 +1112,10 @@ VOX__object_datum VOX__create__test__object_datum__square(float scale, float x_s
     output.p_elements = VOX__create__ebo_vertices(6);
 
     // fill vbo buffer
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 0, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset, y_screen_offset, 0.0f), VOX__create__2D_position(0.0f, 0.0f), texture_number));
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 1, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset + scale, y_screen_offset, 0.0f), VOX__create__2D_position(1.0f, 0.0f), texture_number));
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 2, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset, y_screen_offset + scale, 0.0f), VOX__create__2D_position(0.0f, 1.0f), texture_number));
-    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 3, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset + scale, y_screen_offset + scale, 0.0f), VOX__create__2D_position(1.0f, 1.0f), texture_number));
+    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 0, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset, y_screen_offset, z_screen_offset), VOX__create__2D_position(0.0f, 0.0f), texture_number));
+    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 1, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset + scale, y_screen_offset, z_screen_offset), VOX__create__2D_position(1.0f, 0.0f), texture_number));
+    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 2, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset, y_screen_offset + scale, z_screen_offset), VOX__create__2D_position(0.0f, 1.0f), texture_number));
+    VOX__write__vbo_vertex_to_vbo_vertices(output.p_vertices, 3, VOX__create__vbo_vertex(VOX__create__3D_position(x_screen_offset + scale, y_screen_offset + scale, z_screen_offset), VOX__create__2D_position(1.0f, 1.0f), texture_number));
 
     // fill ebo buffer
     VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 0, VOX__create__ebo_vertex(0));
@@ -1052,6 +1124,19 @@ VOX__object_datum VOX__create__test__object_datum__square(float scale, float x_s
     VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 3, VOX__create__ebo_vertex(3));
     VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 4, VOX__create__ebo_vertex(1));
     VOX__write__ebo_vertex_to_ebo_vertices(output.p_elements, 5, VOX__create__ebo_vertex(2));
+
+    return output;
+}
+
+VOX__object_data VOX__create__test__object_data__2_squares(float scale, float x_screen_offset, float y_screen_offset, float z_screen_offset) {
+    VOX__object_data output;
+
+    // setup sides
+    output = VOX__create__object_data(2);
+
+    // write sides
+    VOX__write__object_datum_to_object_data(output, 0, VOX__create__test__object_datum__square(scale, x_screen_offset, y_screen_offset, z_screen_offset, 0));
+    VOX__write__object_datum_to_object_data(output, 1, VOX__create__test__object_datum__square(scale, x_screen_offset, y_screen_offset, z_screen_offset + scale, 1));
 
     return output;
 }
@@ -1082,11 +1167,18 @@ VOX__game_textures VOX__create__test__game_textures__1() {
         0, 255, 0, 255,
         0, 255, 0, 255
     };
+    unsigned char test_texture_3[] = {
+        0, 0, 0, 255,
+        255, 0, 0, 255,
+        255, 0, 0, 255,
+        255, 0, 0, 255
+    };
 
     // setup block faces
-    block_faces = VOX__create__2D_texture_array(2, 2, 2, 4, GL_TEXTURE_2D_ARRAY);
+    block_faces = VOX__create__2D_texture_array(3, 2, 2, 4, GL_TEXTURE_2D_ARRAY);
     VOX__write__2D_texture_data_to_2D_texture_array(block_faces, VOX__create__buffer__add_address((void*)&test_texture_1, sizeof(test_texture_1)), 0);
     VOX__write__2D_texture_data_to_2D_texture_array(block_faces, VOX__create__buffer__add_address((void*)&test_texture_2, sizeof(test_texture_2)), 1);
+    VOX__write__2D_texture_data_to_2D_texture_array(block_faces, VOX__create__buffer__add_address((void*)&test_texture_3, sizeof(test_texture_3)), 2);
 
     return VOX__open__game_textures(block_faces);
 }
@@ -1116,10 +1208,10 @@ VOX__shaders_program VOX__create__test__shaders_program__playground(VOX__error* 
     VOX__buffer fragment_shader;
 
     // create code
-    vertex_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nlayout (location = 0) in vec3 l_position_attribute;\nlayout (location = 1) in vec2 l_texture_position_attribute;\nlayout (location = 2) in uint l_texture_number_attribute;\nout vec2 pass_texture_coordinates;\nflat out uint pass_texture_number;\nvoid main() {\n\tpass_texture_coordinates = l_texture_position_attribute;\n\tpass_texture_number = l_texture_number_attribute;\n\tgl_Position = vec4(l_position_attribute, 1.0f);\n}");
-    fragment_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nin vec2 pass_texture_coordinates;\nflat in uint pass_texture_number;\nout vec4 pass_fragment_color;\nvoid main() {\n\tpass_fragment_color = vec4(1.0f, 0.0f, 1.0f, 1.0f);\n}");
-    //vertex_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nlayout (location = 0) in vec3 l_position_attribute;\nlayout (location = 1) in vec2 l_texture_position_attribute;\nlayout (location = 2) in uint l_texture_number_attribute;\nvoid main() {\n\tgl_Position = vec4(l_position_attribute, 1.0f);\n}");
-    //fragment_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nout vec4 pass_fragment_color;\nvoid main() {\n\tpass_fragment_color = vec4(1.0f, 0.0f, 1.0f, 1.0f);\n}");
+    //vertex_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nlayout (location = 0) in vec3 l_position_attribute;\nlayout (location = 1) in vec2 l_texture_position_attribute;\nlayout (location = 2) in uint l_texture_number_attribute;\nuniform mat4 u_projection;\nuniform mat4 u_view;\nuniform mat4 u_model;\nout vec2 pass_texture_coordinates;\nflat out uint pass_texture_number;\nvoid main() {\n\tpass_texture_coordinates = l_texture_position_attribute;\n\tpass_texture_number = l_texture_number_attribute;\n\tgl_Position = u_projection * u_view * u_model * vec4(l_position_attribute, 1.0f);\n}");
+    //fragment_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nin vec2 pass_texture_coordinates;\nflat in uint pass_texture_number;\nuniform usampler2DArray u_sampler_2D_array;\nout vec4 pass_fragment_color;\nvoid main() {\n\tpass_fragment_color = texture(u_sampler_2D_array, vec3(pass_texture_coordinates, float(pass_texture_number)));\n}");
+    vertex_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nlayout (location = 0) in vec3 l_position_attribute;\nlayout (location = 1) in vec2 l_texture_position_attribute;\nlayout (location = 2) in uint l_texture_number_attribute;\nuniform mat4 u_camera;\nout vec2 pass_texture_coordinates;\nflat out uint pass_texture_number;\nvoid main() {\n\tpass_texture_coordinates = l_texture_position_attribute;\n\tpass_texture_number = l_texture_number_attribute;\n\tgl_Position = u_camera * vec4(l_position_attribute, 1.0f);\n}");
+    fragment_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nin vec2 pass_texture_coordinates;\nflat in uint pass_texture_number;\nuniform usampler2DArray u_sampler_2D_array;\nout vec4 pass_fragment_color;\nvoid main() {\n\tpass_fragment_color = texture(u_sampler_2D_array, vec3(pass_texture_coordinates, float(pass_texture_number)));\n}");
 
     // compile shaders
     output = VOX__compile__shaders_program(error, vertex_shader, fragment_shader);
@@ -1132,46 +1224,123 @@ VOX__shaders_program VOX__create__test__shaders_program__playground(VOX__error* 
 }
 
 /* Events - User Input */
-typedef struct VOX__keyboard_input {
-    unsigned char p_quit;
-} VOX__keyboard_input;
+typedef struct VOX__user_input {
+    float p_mouse_x_change;
+    float p_mouse_y_change;
+    VOX__bt p_quit;
+    VOX__bt p_w;
+    VOX__bt p_a;
+    VOX__bt p_s;
+    VOX__bt p_d;
+} VOX__user_input;
 
-VOX__keyboard_input VOX__create_null__keyboard_input() {
-    VOX__keyboard_input output;
+VOX__user_input VOX__create_null__user_input() {
+    VOX__user_input output;
+
+    // setup mouse input
+    output.p_mouse_x_change = 0.0f;
+    output.p_mouse_y_change = 0.0f;
 
     // zero flags
-    output.p_quit = 0;
+    output.p_quit = VOX__bt__false;
+    output.p_w = VOX__bt__false;
+    output.p_a = VOX__bt__false;
+    output.p_s = VOX__bt__false;
+    output.p_d = VOX__bt__false;
 
     return output;
 }
 
-VOX__keyboard_input VOX__create__keyboard_input__from_sdl2_events() {
-    VOX__keyboard_input output;
+VOX__user_input VOX__create__user_input__from_sdl2_events() {
+    VOX__user_input output;
     SDL_Event e;
     SDL_Event* e_pointer;
+    int temp_x;
+    int temp_y;
 
     // setup variables
+    output = VOX__create_null__user_input();
     e_pointer = &e;
+
+    // get mouse position
+    SDL_GetRelativeMouseState(&temp_x, &temp_y);
+    output.p_mouse_x_change = (float)temp_x;
+    output.p_mouse_y_change = (float)temp_y;
 
     // get all events
     while (SDL_PollEvent(e_pointer)) {
         if (e.type == SDL_QUIT) {
             output.p_quit = VOX__bt__true;
+        } else if (e.type == SDL_KEYDOWN) {
+            if (e.key.keysym.sym == SDLK_w) {
+                output.p_w = VOX__bt__true;
+            }
+            if (e.key.keysym.sym == SDLK_s) {
+                output.p_s = VOX__bt__true;
+            }
+            if (e.key.keysym.sym == SDLK_a) {
+                output.p_a = VOX__bt__true;
+            }
+            if (e.key.keysym.sym == SDLK_d) {
+                output.p_d = VOX__bt__true;
+            }
+        } else if (e.type == SDL_KEYUP) {
+            if (e.key.keysym.sym == SDLK_w) {
+                output.p_w = VOX__bt__false;
+            }
+            if (e.key.keysym.sym == SDLK_s) {
+                output.p_s = VOX__bt__false;
+            }
+            if (e.key.keysym.sym == SDLK_a) {
+                output.p_a = VOX__bt__false;
+            }
+            if (e.key.keysym.sym == SDLK_d) {
+                output.p_d = VOX__bt__false;
+            }
         }
     }
 
     return output;
 }
 
+VOX__3D_position VOX__calculate__player_position_movement(VOX__user_input user_input, float speed) {
+    VOX__3D_position output;
+
+    // setup output
+    output = VOX__create__3D_position(0.0f, 0.0f, 0.0f);
+
+    // adjust output by player movement
+    if (user_input.p_w == VOX__bt__true) {
+        output.p_z = speed;
+    }
+    if (user_input.p_a == VOX__bt__true) {
+        output.p_x = speed;
+    }
+    if (user_input.p_s == VOX__bt__true) {
+        output.p_z = speed * -1.0f;
+    }
+    if (user_input.p_d == VOX__bt__true) {
+        output.p_x = speed * -1.0f;
+    }
+
+    return output;
+}
+
+VOX__3D_position VOX__calculate__player_camera_rotation_movement(VOX__user_input user_input, float speed) {
+    return VOX__create__3D_position((user_input.p_mouse_x_change) * speed, (user_input.p_mouse_y_change) * speed, 0.0f);
+}
+
 /* Game Loop - Run Actual Game */
 void VOX__play(VOX__error* error) {
     VOX__window_configuration configuration;
     VOX__graphics graphics;
-    VOX__keyboard_input keyboard_input;
     VOX__buffer title;
+    VOX__user_input user_input;
     VOX__shaders_program shaders_program;
-    VOX__drawable_object pattern;
     VOX__game_textures game_textures;
+    VOX__camera camera;
+    VOX__drawable_object pattern;
+    float affect;
 
     // setup title
     title = VOX__create__buffer_copy_from_c_string("Voxelize!");
@@ -1183,7 +1352,7 @@ void VOX__play(VOX__error* error) {
     graphics = VOX__open__graphics__new_window(error, configuration);
 
     // setup opengl shaders
-    shaders_program = VOX__create__test__shaders_program__1(error);
+    shaders_program = VOX__create__test__shaders_program__playground(error);
     if (VOX__check__error__has_error_occured(error) == VOX__bt__true) {
         goto VOX__label__quit_game__shader_failure;
     }
@@ -1194,33 +1363,48 @@ void VOX__play(VOX__error* error) {
     // setup textures
     game_textures = VOX__create__test__game_textures__1();
 
-    // setup opengl settings
-    glEnable(GL_DEPTH_TEST);
-    glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
+    // setup camera
+    camera = VOX__create__camera();
+    affect = 0.0f;
 
     // create data
-    pattern = VOX__open__drawable_object__object_data(VOX__create__test__object_data_from_object_datum(VOX__create__test__object_datum__square(1.0f, -0.5f, -0.5f, 0)));
+    pattern = VOX__open__drawable_object__object_data(VOX__create__test__object_data__2_squares(1.0f, 0.0f, 0.0f, 0.0f));
 
     // send data to gpu
     VOX__send__game_textures_to_opengl(game_textures);
     VOX__send__drawable_object_to_opengl(pattern);
-    
+
+    // setup opengl drawing constants
+    glEnable(GL_DEPTH_TEST);
+    glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
+
     // run window
     while (VOX__bt__true) {
         // get keyboard input
-        keyboard_input = VOX__create__keyboard_input__from_sdl2_events();
+        user_input = VOX__create__user_input__from_sdl2_events();
         
         // check if should quit
-        if (keyboard_input.p_quit == VOX__bt__true) {
+        if (user_input.p_quit == VOX__bt__true) {
             goto VOX__label__quit_game;
         }
 
         // clear window
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // display square
+        // setup affects
+        affect += 0.01f;
+
+        // move camera
+        camera = VOX__move__camera(camera, VOX__calculate__player_position_movement(user_input, 0.5f), VOX__calculate__player_camera_rotation_movement(user_input, 1.0f));
+
+        // bind blocks
         VOX__draw__bind__specific_game_textures_texture(game_textures, VOX__gtt__block_faces);
+        
+        // pass camera and texture data to gpu
         glUniform1i(glGetUniformLocation(shaders_program.p_program_ID, "u_sampler_2D_array"), 0);
+        glUniformMatrix4fv(glGetUniformLocation(shaders_program.p_program_ID, "u_camera"), 1, GL_FALSE, (const GLfloat*)&camera.p_change);
+        
+        // display square
         VOX__draw__drawable_object(pattern);
         VOX__draw__unbind__specific_game_textures_texture(game_textures, VOX__gtt__block_faces);
 

@@ -15,6 +15,7 @@ Dependencies
 - SDL2
 - OpenGL
 - GLEW
+- cglm
 
 Compiler Used:
 
