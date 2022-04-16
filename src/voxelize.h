@@ -10,14 +10,29 @@
 
 // C Standard Library
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <math.h>
 
 /* Defines */
 // define type
 typedef enum VOX__dt {
-    VOX__dt__opengl_error_info_log_length = 1024
+    VOX__dt__opengl_error_info_log_length = 1024,
+    VOX__dt__chunk_side_length = 8,
+    VOX__dt__chunk_block_count = VOX__dt__chunk_side_length * VOX__dt__chunk_side_length * VOX__dt__chunk_side_length
 } VOX__dt;
+
+// base types
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+typedef int8_t s8;
+typedef int16_t s16;
+typedef int32_t s32;
+typedef int64_t s64;
+typedef float f32;
+typedef double f64;
 
 /* Boolean */
 // boolean type
@@ -166,11 +181,11 @@ VOX__bt VOX__check__error__has_error_occured(VOX__error* error) {
 }
 
 void VOX__print__error(VOX__error error) {
-    printf("Voxelize Error Code: %llu\n", (unsigned long long)error.p_type);
+    printf("Voxelize Error Code: %lu\n", (u64)error.p_type);
 
     if (error.p_has_extra_data == VOX__bt__true) {
         if (error.p_opengl_error_code != GL_NO_ERROR) {
-            printf("OpenGL Error Code: %llu\n", (unsigned long long)error.p_opengl_error_code);
+            printf("OpenGL Error Code: %lu\n", (u64)error.p_opengl_error_code);
         }
 
         if (error.p_opengl_log != 0) {
@@ -182,11 +197,11 @@ void VOX__print__error(VOX__error error) {
 }
 
 /* Allocation */
-void* VOX__create__allocation(unsigned long long length) {
+void* VOX__create__allocation(u64 length) {
     return malloc(length);
 }
 
-void VOX__destroy__allocation(void* allocation, unsigned long long length) {
+void VOX__destroy__allocation(void* allocation, u64 length) {
     free(allocation);
 
     return;
@@ -210,17 +225,17 @@ void VOX__destroy__error(VOX__error error) {
 }
 
 /* Copy Bytes */
-void VOX__copy__bytes_to_bytes(void* source, unsigned long long length, void* destination) {
-    for (unsigned long long i = 0; i < length; i++) {
-        ((unsigned char*)destination)[i] = ((unsigned char*)source)[i];
+void VOX__copy__bytes_to_bytes(void* source, u64 length, void* destination) {
+    for (u64 i = 0; i < length; i++) {
+        ((u8*)destination)[i] = ((u8*)source)[i];
     }
 
     return;
 }
 
 /* Strings */
-unsigned long long VOX__string__length_without_null(char* string_start) {
-    unsigned long long output;
+u64 VOX__string__length_without_null(char* string_start) {
+    u64 output;
 
     // setup output
     output = 0;
@@ -235,10 +250,10 @@ unsigned long long VOX__string__length_without_null(char* string_start) {
 /* Buffer - A Pointer With A Length */
 typedef struct VOX__buffer {
     void* p_data;
-    unsigned long long p_length;
+    u64 p_length;
 } VOX__buffer;
 
-VOX__buffer VOX__create__buffer(unsigned long long length) {
+VOX__buffer VOX__create__buffer(u64 length) {
     VOX__buffer output;
 
     // setup output
@@ -248,7 +263,7 @@ VOX__buffer VOX__create__buffer(unsigned long long length) {
     return output;
 }
 
-VOX__buffer VOX__create__buffer__add_address(void* address, unsigned long long length) {
+VOX__buffer VOX__create__buffer__add_address(void* address, u64 length) {
     VOX__buffer output;
 
     // setup output
@@ -277,7 +292,7 @@ VOX__buffer VOX__create__buffer_from_buffer__add_null_termination(VOX__buffer bu
     output = VOX__create__buffer(buffer.p_length + 1);
 
     // copy
-    for (unsigned long long i = 0; i < buffer.p_length; i++) {
+    for (u64 i = 0; i < buffer.p_length; i++) {
         ((char*)output.p_data)[i] = ((char*)buffer.p_data)[i];
     }
 
@@ -296,9 +311,9 @@ void VOX__destroy__buffer(VOX__buffer buffer) {
 /* Graphics - Getting Window Open */
 typedef struct VOX__window_configuration {
     VOX__buffer p_title;
-    int p_width;
-    int p_height;
-    unsigned short p_flags; // currently unused
+    u32 p_width;
+    u32 p_height;
+    u16 p_flags; // currently unused
 } VOX__window_configuration;
 
 typedef struct VOX__graphics {
@@ -316,7 +331,7 @@ VOX__graphics VOX__create_null__graphics() {
     return output;
 }
 
-VOX__window_configuration VOX__create__window_configuration(VOX__buffer title_string_pointer_no_null, int width, int height, unsigned short flags) {
+VOX__window_configuration VOX__create__window_configuration(VOX__buffer title_string_pointer_no_null, u32 width, u32 height, u16 flags) {
     VOX__window_configuration output;
 
     // setup output
@@ -505,11 +520,11 @@ void VOX__close__shaders(VOX__shaders_program shaders_program) {
 
 /* 2D Positions - 2D Coordinate Datum */
 typedef struct VOX__2D_position {
-    float p_x;
-    float p_y;
+    f32 p_x;
+    f32 p_y;
 } VOX__2D_position;
 
-VOX__2D_position VOX__create__2D_position(float x, float y) {
+VOX__2D_position VOX__create__2D_position(f32 x, f32 y) {
     VOX__2D_position output;
 
     // setup output
@@ -521,12 +536,12 @@ VOX__2D_position VOX__create__2D_position(float x, float y) {
 
 /* 3D Positions - 3D Coordinate Datum */
 typedef struct VOX__3D_position {
-    float p_x;
-    float p_y;
-    float p_z;
+    f32 p_x;
+    f32 p_y;
+    f32 p_z;
 } VOX__3D_position;
 
-VOX__3D_position VOX__create__3D_position(float x, float y, float z) {
+VOX__3D_position VOX__create__3D_position(f32 x, f32 y, f32 z) {
     VOX__3D_position output;
 
     // setup output
@@ -574,7 +589,7 @@ void VOX__send__vbo_attributes() {
 /* Vertices - Multiple OpenGL Vertices */
 typedef struct VOX__vbo_vertices {
     VOX__buffer p_vertices;
-    unsigned long long p_vertex_count;
+    u64 p_vertex_count;
 } VOX__vbo_vertices;
 
 VOX__vbo_vertices VOX__create_null__vbo_vertices() {
@@ -587,7 +602,7 @@ VOX__vbo_vertices VOX__create_null__vbo_vertices() {
     return output;
 }
 
-VOX__vbo_vertices VOX__create__vbo_vertices(unsigned long long vertex_count) {
+VOX__vbo_vertices VOX__create__vbo_vertices(u64 vertex_count) {
     VOX__vbo_vertices output;
 
     // setup output
@@ -597,13 +612,13 @@ VOX__vbo_vertices VOX__create__vbo_vertices(unsigned long long vertex_count) {
     return output;
 }
 
-void VOX__write__vbo_vertex_to_vbo_vertices(VOX__vbo_vertices vbo_vertices, unsigned long long index, VOX__vbo_vertex vbo_vertex) {
+void VOX__write__vbo_vertex_to_vbo_vertices(VOX__vbo_vertices vbo_vertices, u64 index, VOX__vbo_vertex vbo_vertex) {
     ((VOX__vbo_vertex*)vbo_vertices.p_vertices.p_data)[index] = vbo_vertex;
 
     return;
 }
 
-VOX__vbo_vertex VOX__read__vbo_vertex_from_vbo_vertices(VOX__vbo_vertices vbo_vertices, unsigned long long index) {
+VOX__vbo_vertex VOX__read__vbo_vertex_from_vbo_vertices(VOX__vbo_vertices vbo_vertices, u64 index) {
     return ((VOX__vbo_vertex*)vbo_vertices.p_vertices.p_data)[index];
 }
 
@@ -620,11 +635,13 @@ void VOX__destroy__vbo_vertices(VOX__vbo_vertices vbo_vertices) {
 }
 
 /* Element - One OpenGL Elements Buffer Vertex */
+typedef GLushort VOX__ebo_index;
+
 typedef struct VOX__ebo_vertex {
-    GLuint p_index;
+    VOX__ebo_index p_index;
 } VOX__ebo_vertex;
 
-VOX__ebo_vertex VOX__create__ebo_vertex(GLuint index) {
+VOX__ebo_vertex VOX__create__ebo_vertex(VOX__ebo_index index) {
     VOX__ebo_vertex output;
 
     // setup output
@@ -636,7 +653,7 @@ VOX__ebo_vertex VOX__create__ebo_vertex(GLuint index) {
 /* Elements - Multiple Element Vertices */
 typedef struct VOX__ebo_vertices {
     VOX__buffer p_elements;
-    unsigned long long p_element_count;
+    u64 p_element_count;
 } VOX__ebo_vertices;
 
 VOX__ebo_vertices VOX__create_null__ebo_vertices() {
@@ -649,7 +666,7 @@ VOX__ebo_vertices VOX__create_null__ebo_vertices() {
     return output;
 }
 
-VOX__ebo_vertices VOX__create__ebo_vertices(unsigned long long element_count) {
+VOX__ebo_vertices VOX__create__ebo_vertices(u64 element_count) {
     VOX__ebo_vertices output;
 
     // setup output
@@ -659,13 +676,13 @@ VOX__ebo_vertices VOX__create__ebo_vertices(unsigned long long element_count) {
     return output;
 }
 
-void VOX__write__ebo_vertex_to_ebo_vertices(VOX__ebo_vertices ebo_vertices, unsigned long long index, VOX__ebo_vertex ebo_vertex) {
+void VOX__write__ebo_vertex_to_ebo_vertices(VOX__ebo_vertices ebo_vertices, u64 index, VOX__ebo_vertex ebo_vertex) {
     ((VOX__ebo_vertex*)ebo_vertices.p_elements.p_data)[index] = ebo_vertex;
 
     return;
 }
 
-VOX__ebo_vertex VOX__read__ebo_vertex_from_ebo_vertices(VOX__ebo_vertices ebo_vertices, unsigned long long index) {
+VOX__ebo_vertex VOX__read__ebo_vertex_from_ebo_vertices(VOX__ebo_vertices ebo_vertices, u64 index) {
     return ((VOX__ebo_vertex*)ebo_vertices.p_elements.p_data)[index];
 }
 
@@ -707,7 +724,7 @@ void VOX__destroy__object_datum(VOX__object_datum object_datum) {
 /* Object Data - Multiple Object Pieces as One Object */
 typedef struct VOX__object_data {
     VOX__buffer p_datums;
-    unsigned long long p_datums_count;
+    u64 p_datums_count;
 } VOX__object_data;
 
 VOX__object_data VOX__create_null__object_data() {
@@ -720,7 +737,7 @@ VOX__object_data VOX__create_null__object_data() {
     return output;
 }
 
-VOX__object_data VOX__create__object_data(unsigned long long datum_count) {
+VOX__object_data VOX__create__object_data(u64 datum_count) {
     VOX__object_data output;
 
     // setup output
@@ -730,19 +747,19 @@ VOX__object_data VOX__create__object_data(unsigned long long datum_count) {
     return output;
 }
 
-void VOX__write__object_datum_to_object_data(VOX__object_data object_data, unsigned long long index, VOX__object_datum object_datum) {
+void VOX__write__object_datum_to_object_data(VOX__object_data object_data, u64 index, VOX__object_datum object_datum) {
     ((VOX__object_datum*)object_data.p_datums.p_data)[index] = object_datum;
 
     return;
 }
 
-VOX__object_datum VOX__read__object_datum_from_object_data(VOX__object_data object_data, unsigned long long index) {
+VOX__object_datum VOX__read__object_datum_from_object_data(VOX__object_data object_data, u64 index) {
     return ((VOX__object_datum*)object_data.p_datums.p_data)[index];
 }
 
 void VOX__destroy__object_data(VOX__object_data object_data) {
     // clear datums buffer
-    for (unsigned long long i = 0; i < object_data.p_datums_count; i++) {
+    for (u64 i = 0; i < object_data.p_datums_count; i++) {
         VOX__destroy__object_datum(VOX__read__object_datum_from_object_data(object_data, i));
     }
 
@@ -756,7 +773,7 @@ void VOX__destroy__object_data(VOX__object_data object_data) {
 typedef struct VOX__opengl_object_handle {
     VOX__buffer p_vbos;
     VOX__buffer p_ebos;
-    unsigned long long p_ebos_vbos_count; // ebos count = vbos count
+    u64 p_ebos_vbos_count; // ebos count = vbos count
     GLuint p_vao;
 } VOX__opengl_object_handle;
 
@@ -772,20 +789,20 @@ VOX__opengl_object_handle VOX__create_null__opengl_object_handle() {
     return output;
 }
 
-VOX__opengl_object_handle VOX__open__opengl_object_handle(unsigned long long expected_buffer_pairs_count) {
+VOX__opengl_object_handle VOX__open__opengl_object_handle(u64 expected_buffer_pairs_count) {
     VOX__opengl_object_handle output;
     VOX__buffer joint_allocation;
-    unsigned long long single_buffer_length = expected_buffer_pairs_count * sizeof(GLuint);
+    u64 shared_buffer_length = expected_buffer_pairs_count * sizeof(GLuint);
 
     // setup output
     output = VOX__create_null__opengl_object_handle();
 
     // create joint allocation
-    joint_allocation = VOX__create__buffer(single_buffer_length * 2);
+    joint_allocation = VOX__create__buffer(shared_buffer_length * 2);
 
     // setup allocations
-    output.p_vbos = VOX__create__buffer__add_address(joint_allocation.p_data, single_buffer_length);
-    output.p_ebos = VOX__create__buffer__add_address(joint_allocation.p_data + single_buffer_length, single_buffer_length);
+    output.p_vbos = VOX__create__buffer__add_address(joint_allocation.p_data, shared_buffer_length);
+    output.p_ebos = VOX__create__buffer__add_address(joint_allocation.p_data + shared_buffer_length, shared_buffer_length);
 
     // setup buffer pairs count
     output.p_ebos_vbos_count = expected_buffer_pairs_count;
@@ -798,14 +815,14 @@ VOX__opengl_object_handle VOX__open__opengl_object_handle(unsigned long long exp
     return output;
 }
 
-void VOX__draw__bind__vbo_and_ebo(VOX__opengl_object_handle opengl_object_handle, unsigned long long index) {
+void VOX__draw__bind__vbo_and_ebo(VOX__opengl_object_handle opengl_object_handle, u64 index) {
     glBindBuffer(GL_ARRAY_BUFFER, ((GLuint*)opengl_object_handle.p_vbos.p_data)[index]);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ((GLuint*)opengl_object_handle.p_ebos.p_data)[index]);
 
     return;
 }
 
-void VOX__draw__unbind__vbo_and_ebo(VOX__opengl_object_handle opengl_object_handle, unsigned long long index) {
+void VOX__draw__unbind__vbo_and_ebo(VOX__opengl_object_handle opengl_object_handle, u64 index) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
@@ -865,7 +882,7 @@ void VOX__send__drawable_object_to_opengl(VOX__drawable_object drawable_object) 
     VOX__draw__bind__vao(drawable_object.p_handle);
 
     // send each individual buffer
-    for (unsigned long long i = 0; i < drawable_object.p_handle.p_ebos_vbos_count; i++) {
+    for (u64 i = 0; i < drawable_object.p_handle.p_ebos_vbos_count; i++) {
         // bind current vbo and ebo buffers
         VOX__draw__bind__vbo_and_ebo(drawable_object.p_handle, i);
 
@@ -890,7 +907,7 @@ void VOX__draw__drawable_object(VOX__drawable_object drawable_object) {
     VOX__draw__bind__vao(drawable_object.p_handle);
 
     // draw each individual buffer
-    for (unsigned long long i = 0; i < drawable_object.p_handle.p_ebos_vbos_count; i++) {
+    for (u64 i = 0; i < drawable_object.p_handle.p_ebos_vbos_count; i++) {
         // bind current vbo and ebo buffers
         VOX__draw__bind__vbo_and_ebo(drawable_object.p_handle, i);
 
@@ -898,7 +915,7 @@ void VOX__draw__drawable_object(VOX__drawable_object drawable_object) {
         VOX__send__vbo_attributes();
 
         // draw current vbo and ebo buffers
-        glDrawElements(GL_TRIANGLES, ((VOX__object_datum*)drawable_object.p_object_data.p_datums.p_data)[i].p_elements.p_element_count, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, ((VOX__object_datum*)drawable_object.p_object_data.p_datums.p_data)[i].p_elements.p_element_count, GL_UNSIGNED_SHORT, 0);
 
         // unbind current vbo and ebo buffers
         VOX__draw__unbind__vbo_and_ebo(drawable_object.p_handle, i);
@@ -919,14 +936,14 @@ void VOX__close__drawable_object(VOX__drawable_object drawable_object) {
 /* 2D Texture Array */
 typedef struct VOX__2D_texture_array {
     VOX__buffer p_textures;
-    unsigned long long p_single_texture_width;
-    unsigned long long p_single_texture_height;
-    unsigned long long p_texel_byte_count;
-    unsigned long long p_texture_count;
+    u64 p_single_texture_width;
+    u64 p_single_texture_height;
+    u64 p_texel_byte_count;
+    u64 p_texture_count;
     GLenum p_texture_type;
 } VOX__2D_texture_array;
 
-VOX__2D_texture_array VOX__create__2D_texture_array(unsigned long long texture_count, unsigned long long single_texture_width, unsigned long long single_texture_height, unsigned long long texel_byte_count, GLenum texture_type) {
+VOX__2D_texture_array VOX__create__2D_texture_array(u64 texture_count, u64 single_texture_width, u64 single_texture_height, u64 texel_byte_count, GLenum texture_type) {
     VOX__2D_texture_array output;
 
     // setup textures buffer
@@ -942,11 +959,11 @@ VOX__2D_texture_array VOX__create__2D_texture_array(unsigned long long texture_c
     return output;
 }
 
-unsigned long long VOX__calculate__2D_texture_offset_in_2D_texture_array(VOX__2D_texture_array texture_array, unsigned long long index) {
+u64 VOX__calculate__2D_texture_offset_in_2D_texture_array(VOX__2D_texture_array texture_array, u64 index) {
     return texture_array.p_single_texture_height * texture_array.p_single_texture_width * texture_array.p_texel_byte_count * index;
 }
 
-void VOX__write__2D_texture_data_to_2D_texture_array(VOX__2D_texture_array texture_array, VOX__buffer texture_data, unsigned long long index) {
+void VOX__write__2D_texture_data_to_2D_texture_array(VOX__2D_texture_array texture_array, VOX__buffer texture_data, u64 index) {
     VOX__copy__bytes_to_bytes(texture_data.p_data, texture_data.p_length, texture_array.p_textures.p_data + VOX__calculate__2D_texture_offset_in_2D_texture_array(texture_array, index));
 
     return;
@@ -1030,10 +1047,36 @@ void VOX__close__game_textures(VOX__game_textures game_textures) {
     return;
 }
 
+/* Blocks *//*
+typedef u16 VOX__block_ID;
+
+typedef struct VOX__block {
+    VOX__block_ID p_ID;
+} VOX__block;
+
+typedef struct VOX__block_dictionary_entry {
+    GLenum p_top_texture_ID;
+    GLenum p_bottom_texture_ID;
+    GLenum p_left_texture_ID;
+    GLenum p_right_texture_ID;
+    GLenum p_front_texture_ID;
+    GLenum p_back_texture_ID;
+} VOX__block_dictionary_entry;
+
+typedef struct VOX__block_dictionary {
+    VOX__buffer p_dictionary;
+    u64 p_entry_count;
+} VOX__block_dictionary;
+*/
+/* Chunks *//*
+typedef struct VOX__chunk {
+    VOX__buffer p_blocks;
+} VOX__chunk;*/
+
 /* Camera */
 typedef struct VOX__camera {
-    float p_yaw;
-    float p_pitch;
+    f32 p_yaw;
+    f32 p_pitch;
     vec3 p_position;
     versor p_angle;
     mat4 p_matrix_identity;
@@ -1101,7 +1144,7 @@ VOX__camera VOX__move__camera(VOX__camera camera, VOX__3D_position camera_positi
 }
 
 /* Testing - Functions Testing Code */
-VOX__object_datum VOX__create__test__object_datum__square(float scale, float x_screen_offset, float y_screen_offset, float z_screen_offset, GLuint texture_number) {
+VOX__object_datum VOX__create__test__object_datum__square(f32 scale, f32 x_screen_offset, f32 y_screen_offset, f32 z_screen_offset, GLuint texture_number) {
     VOX__object_datum output;
 
     // setup output
@@ -1128,7 +1171,7 @@ VOX__object_datum VOX__create__test__object_datum__square(float scale, float x_s
     return output;
 }
 
-VOX__object_data VOX__create__test__object_data__2_squares(float scale, float x_screen_offset, float y_screen_offset, float z_screen_offset) {
+VOX__object_data VOX__create__test__object_data__2_squares(f32 scale, f32 x_screen_offset, f32 y_screen_offset, f32 z_screen_offset) {
     VOX__object_data output;
 
     // setup sides
@@ -1155,19 +1198,19 @@ VOX__object_data VOX__create__test__object_data_from_object_datum(VOX__object_da
 
 VOX__game_textures VOX__create__test__game_textures__1() {
     VOX__2D_texture_array block_faces;
-    unsigned char test_texture_1[] = {
+    u8 test_texture_1[] = {
         0, 0, 0, 255,
         0, 0, 255, 255,
         0, 0, 255, 255,
         0, 0, 255, 255
     };
-    unsigned char test_texture_2[] = {
+    u8 test_texture_2[] = {
         0, 0, 0, 255,
         0, 255, 0, 255,
         0, 255, 0, 255,
         0, 255, 0, 255
     };
-    unsigned char test_texture_3[] = {
+    u8 test_texture_3[] = {
         0, 0, 0, 255,
         255, 0, 0, 255,
         255, 0, 0, 255,
@@ -1212,7 +1255,7 @@ VOX__shaders_program VOX__create__test__shaders_program__playground(VOX__error* 
     //fragment_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nin vec2 pass_texture_coordinates;\nflat in uint pass_texture_number;\nuniform usampler2DArray u_sampler_2D_array;\nout vec4 pass_fragment_color;\nvoid main() {\n\tpass_fragment_color = texture(u_sampler_2D_array, vec3(pass_texture_coordinates, float(pass_texture_number)));\n}");
     vertex_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nlayout (location = 0) in vec3 l_position_attribute;\nlayout (location = 1) in vec2 l_texture_position_attribute;\nlayout (location = 2) in uint l_texture_number_attribute;\nuniform mat4 u_camera;\nout vec2 pass_texture_coordinates;\nflat out uint pass_texture_number;\nvoid main() {\n\tpass_texture_coordinates = l_texture_position_attribute;\n\tpass_texture_number = l_texture_number_attribute;\n\tgl_Position = u_camera * vec4(l_position_attribute, 1.0f);\n}");
     fragment_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nin vec2 pass_texture_coordinates;\nflat in uint pass_texture_number;\nuniform usampler2DArray u_sampler_2D_array;\nout vec4 pass_fragment_color;\nvoid main() {\n\tpass_fragment_color = texture(u_sampler_2D_array, vec3(pass_texture_coordinates, float(pass_texture_number)));\n}");
-
+    
     // compile shaders
     output = VOX__compile__shaders_program(error, vertex_shader, fragment_shader);
 
@@ -1225,8 +1268,8 @@ VOX__shaders_program VOX__create__test__shaders_program__playground(VOX__error* 
 
 /* Events - User Input */
 typedef struct VOX__user_input {
-    float p_mouse_x_change;
-    float p_mouse_y_change;
+    f32 p_mouse_x_change;
+    f32 p_mouse_y_change;
     VOX__bt p_quit;
     VOX__bt p_w;
     VOX__bt p_a;
@@ -1255,8 +1298,8 @@ VOX__user_input VOX__create__user_input__from_sdl2_events() {
     VOX__user_input output;
     SDL_Event e;
     SDL_Event* e_pointer;
-    int temp_x;
-    int temp_y;
+    s32 temp_x;
+    s32 temp_y;
 
     // setup variables
     output = VOX__create_null__user_input();
@@ -1264,8 +1307,8 @@ VOX__user_input VOX__create__user_input__from_sdl2_events() {
 
     // get mouse position
     SDL_GetRelativeMouseState(&temp_x, &temp_y);
-    output.p_mouse_x_change = (float)temp_x;
-    output.p_mouse_y_change = (float)temp_y;
+    output.p_mouse_x_change = (f32)temp_x;
+    output.p_mouse_y_change = (f32)temp_y;
 
     // get all events
     while (SDL_PollEvent(e_pointer)) {
@@ -1303,7 +1346,7 @@ VOX__user_input VOX__create__user_input__from_sdl2_events() {
     return output;
 }
 
-VOX__3D_position VOX__calculate__player_position_movement(VOX__user_input user_input, float speed) {
+VOX__3D_position VOX__calculate__player_position_movement(VOX__user_input user_input, f32 speed) {
     VOX__3D_position output;
 
     // setup output
@@ -1326,7 +1369,7 @@ VOX__3D_position VOX__calculate__player_position_movement(VOX__user_input user_i
     return output;
 }
 
-VOX__3D_position VOX__calculate__player_camera_rotation_movement(VOX__user_input user_input, float speed) {
+VOX__3D_position VOX__calculate__player_camera_rotation_movement(VOX__user_input user_input, f32 speed) {
     return VOX__create__3D_position((user_input.p_mouse_x_change) * speed, (user_input.p_mouse_y_change) * speed, 0.0f);
 }
 
@@ -1340,7 +1383,7 @@ void VOX__play(VOX__error* error) {
     VOX__game_textures game_textures;
     VOX__camera camera;
     VOX__drawable_object pattern;
-    float affect;
+    f32 affect;
 
     // setup title
     title = VOX__create__buffer_copy_from_c_string("Voxelize!");
