@@ -553,13 +553,15 @@ VOX__3D_position VOX__create__3D_position(f32 x, f32 y, f32 z) {
 }
 
 /* Vertex - One OpenGL Vertex */
+typedef GLfloat VOX__texture_number_type;
+
 typedef struct VOX__vbo_vertex {
     VOX__3D_position p_positional_coordinate;
     VOX__2D_position p_texture_coordinate;
-    GLuint p_texture_number;
+    VOX__texture_number_type p_texture_number;
 } VOX__vbo_vertex;
 
-VOX__vbo_vertex VOX__create__vbo_vertex(VOX__3D_position positional_coordinate, VOX__2D_position texture_coordinate, GLuint texture_number) {
+VOX__vbo_vertex VOX__create__vbo_vertex(VOX__3D_position positional_coordinate, VOX__2D_position texture_coordinate, VOX__texture_number_type texture_number) {
     VOX__vbo_vertex output;
 
     // setup output
@@ -580,7 +582,7 @@ void VOX__send__vbo_attributes() {
     glEnableVertexAttribArray(1);
 
     // texture numbers
-    glVertexAttribPointer(2, 1, GL_UNSIGNED_INT, GL_FALSE, sizeof(VOX__vbo_vertex), (void*)(sizeof(VOX__3D_position) + sizeof(VOX__2D_position)));
+    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(VOX__vbo_vertex), (void*)(sizeof(VOX__3D_position) + sizeof(VOX__2D_position)));
     glEnableVertexAttribArray(2);
 
     return;
@@ -1047,7 +1049,7 @@ void VOX__close__game_textures(VOX__game_textures game_textures) {
     return;
 }
 
-/* Blocks *//*
+/* Blocks */
 typedef u16 VOX__block_ID;
 
 typedef struct VOX__block {
@@ -1067,11 +1069,11 @@ typedef struct VOX__block_dictionary {
     VOX__buffer p_dictionary;
     u64 p_entry_count;
 } VOX__block_dictionary;
-*/
-/* Chunks *//*
+
+/* Chunks */
 typedef struct VOX__chunk {
     VOX__buffer p_blocks;
-} VOX__chunk;*/
+} VOX__chunk;
 
 /* Camera */
 typedef struct VOX__camera {
@@ -1144,7 +1146,7 @@ VOX__camera VOX__move__camera(VOX__camera camera, VOX__3D_position camera_positi
 }
 
 /* Testing - Functions Testing Code */
-VOX__object_datum VOX__create__test__object_datum__square(f32 scale, f32 x_screen_offset, f32 y_screen_offset, f32 z_screen_offset, GLuint texture_number) {
+VOX__object_datum VOX__create__test__object_datum__square(f32 scale, f32 x_screen_offset, f32 y_screen_offset, f32 z_screen_offset, VOX__texture_number_type texture_number) {
     VOX__object_datum output;
 
     // setup output
@@ -1178,8 +1180,25 @@ VOX__object_data VOX__create__test__object_data__2_squares(f32 scale, f32 x_scre
     output = VOX__create__object_data(2);
 
     // write sides
-    VOX__write__object_datum_to_object_data(output, 0, VOX__create__test__object_datum__square(scale, x_screen_offset, y_screen_offset, z_screen_offset, 0));
-    VOX__write__object_datum_to_object_data(output, 1, VOX__create__test__object_datum__square(scale, x_screen_offset, y_screen_offset, z_screen_offset + scale, 1));
+    VOX__write__object_datum_to_object_data(output, 0, VOX__create__test__object_datum__square(scale, x_screen_offset, y_screen_offset, z_screen_offset, 0.0f));
+    VOX__write__object_datum_to_object_data(output, 1, VOX__create__test__object_datum__square(scale, x_screen_offset, y_screen_offset, z_screen_offset + scale, 1.0f));
+
+    return output;
+}
+
+VOX__object_data VOX__create__test__object_data__6_squares(f32 scale, f32 x_screen_offset, f32 y_screen_offset, f32 z_screen_offset) {
+    VOX__object_data output;
+
+    // setup sides
+    output = VOX__create__object_data(6);
+
+    // write sides
+    VOX__write__object_datum_to_object_data(output, 0, VOX__create__test__object_datum__square(scale, x_screen_offset, y_screen_offset, z_screen_offset + ((scale / 6.0f) * 0.0f), 0.0f));
+    VOX__write__object_datum_to_object_data(output, 1, VOX__create__test__object_datum__square(scale, x_screen_offset, y_screen_offset, z_screen_offset + ((scale / 6.0f) * 1.0f), 1.0f));
+    VOX__write__object_datum_to_object_data(output, 2, VOX__create__test__object_datum__square(scale, x_screen_offset, y_screen_offset, z_screen_offset + ((scale / 6.0f) * 2.0f), 2.0f));
+    VOX__write__object_datum_to_object_data(output, 3, VOX__create__test__object_datum__square(scale, x_screen_offset, y_screen_offset, z_screen_offset + ((scale / 6.0f) * 3.0f), 3.0f));
+    VOX__write__object_datum_to_object_data(output, 4, VOX__create__test__object_datum__square(scale, x_screen_offset, y_screen_offset, z_screen_offset + ((scale / 6.0f) * 4.0f), 4.0f));
+    VOX__write__object_datum_to_object_data(output, 5, VOX__create__test__object_datum__square(scale, x_screen_offset, y_screen_offset, z_screen_offset + ((scale / 6.0f) * 5.0f), 5.0f));
 
     return output;
 }
@@ -1198,30 +1217,57 @@ VOX__object_data VOX__create__test__object_data_from_object_datum(VOX__object_da
 
 VOX__game_textures VOX__create__test__game_textures__1() {
     VOX__2D_texture_array block_faces;
+    // blue
     u8 test_texture_1[] = {
         0, 0, 0, 255,
         0, 0, 255, 255,
         0, 0, 255, 255,
         0, 0, 255, 255
     };
+    // green
     u8 test_texture_2[] = {
         0, 0, 0, 255,
         0, 255, 0, 255,
         0, 255, 0, 255,
         0, 255, 0, 255
     };
+    // red
     u8 test_texture_3[] = {
         0, 0, 0, 255,
         255, 0, 0, 255,
         255, 0, 0, 255,
         255, 0, 0, 255
     };
+    // purple
+    u8 test_texture_4[] = {
+        0, 0, 0, 255,
+        255, 0, 255, 255,
+        255, 0, 255, 255,
+        255, 0, 255, 255
+    };
+    // indigo
+    u8 test_texture_5[] = {
+        0, 0, 0, 255,
+        0, 255, 255, 255,
+        0, 255, 255, 255,
+        0, 255, 255, 255
+    };
+    // yellow
+    u8 test_texture_6[] = {
+        0, 0, 0, 255,
+        255, 255, 0, 255,
+        255, 255, 0, 255,
+        255, 255, 0, 255
+    };
 
     // setup block faces
-    block_faces = VOX__create__2D_texture_array(3, 2, 2, 4, GL_TEXTURE_2D_ARRAY);
+    block_faces = VOX__create__2D_texture_array(6, 2, 2, 4, GL_TEXTURE_2D_ARRAY);
     VOX__write__2D_texture_data_to_2D_texture_array(block_faces, VOX__create__buffer__add_address((void*)&test_texture_1, sizeof(test_texture_1)), 0);
     VOX__write__2D_texture_data_to_2D_texture_array(block_faces, VOX__create__buffer__add_address((void*)&test_texture_2, sizeof(test_texture_2)), 1);
     VOX__write__2D_texture_data_to_2D_texture_array(block_faces, VOX__create__buffer__add_address((void*)&test_texture_3, sizeof(test_texture_3)), 2);
+    VOX__write__2D_texture_data_to_2D_texture_array(block_faces, VOX__create__buffer__add_address((void*)&test_texture_4, sizeof(test_texture_4)), 3);
+    VOX__write__2D_texture_data_to_2D_texture_array(block_faces, VOX__create__buffer__add_address((void*)&test_texture_5, sizeof(test_texture_5)), 4);
+    VOX__write__2D_texture_data_to_2D_texture_array(block_faces, VOX__create__buffer__add_address((void*)&test_texture_6, sizeof(test_texture_6)), 5);
 
     return VOX__open__game_textures(block_faces);
 }
@@ -1253,8 +1299,8 @@ VOX__shaders_program VOX__create__test__shaders_program__playground(VOX__error* 
     // create code
     //vertex_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nlayout (location = 0) in vec3 l_position_attribute;\nlayout (location = 1) in vec2 l_texture_position_attribute;\nlayout (location = 2) in uint l_texture_number_attribute;\nuniform mat4 u_projection;\nuniform mat4 u_view;\nuniform mat4 u_model;\nout vec2 pass_texture_coordinates;\nflat out uint pass_texture_number;\nvoid main() {\n\tpass_texture_coordinates = l_texture_position_attribute;\n\tpass_texture_number = l_texture_number_attribute;\n\tgl_Position = u_projection * u_view * u_model * vec4(l_position_attribute, 1.0f);\n}");
     //fragment_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nin vec2 pass_texture_coordinates;\nflat in uint pass_texture_number;\nuniform usampler2DArray u_sampler_2D_array;\nout vec4 pass_fragment_color;\nvoid main() {\n\tpass_fragment_color = texture(u_sampler_2D_array, vec3(pass_texture_coordinates, float(pass_texture_number)));\n}");
-    vertex_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nlayout (location = 0) in vec3 l_position_attribute;\nlayout (location = 1) in vec2 l_texture_position_attribute;\nlayout (location = 2) in uint l_texture_number_attribute;\nuniform mat4 u_camera;\nout vec2 pass_texture_coordinates;\nflat out uint pass_texture_number;\nvoid main() {\n\tpass_texture_coordinates = l_texture_position_attribute;\n\tpass_texture_number = l_texture_number_attribute;\n\tgl_Position = u_camera * vec4(l_position_attribute, 1.0f);\n}");
-    fragment_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nin vec2 pass_texture_coordinates;\nflat in uint pass_texture_number;\nuniform usampler2DArray u_sampler_2D_array;\nout vec4 pass_fragment_color;\nvoid main() {\n\tpass_fragment_color = texture(u_sampler_2D_array, vec3(pass_texture_coordinates, float(pass_texture_number)));\n}");
+    vertex_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nlayout (location = 0) in vec3 l_position_attribute;\nlayout (location = 1) in vec2 l_texture_position_attribute;\nlayout (location = 2) in float l_texture_number_attribute;\nuniform mat4 u_camera;\nout vec3 pass_texture_coordinates;\nvoid main() {\n\tpass_texture_coordinates = vec3(l_texture_position_attribute, l_texture_number_attribute);\n\tgl_Position = u_camera * vec4(l_position_attribute, 1.0f);\n}");
+    fragment_shader = VOX__create__buffer_copy_from_c_string("#version 330 core\nin vec3 pass_texture_coordinates;\nuniform usampler2DArray u_sampler_2D_array;\nout vec4 pass_fragment_color;\nvoid main() {\n\tpass_fragment_color = texture(u_sampler_2D_array, pass_texture_coordinates);\n}");
     
     // compile shaders
     output = VOX__compile__shaders_program(error, vertex_shader, fragment_shader);
@@ -1411,7 +1457,7 @@ void VOX__play(VOX__error* error) {
     affect = 0.0f;
 
     // create data
-    pattern = VOX__open__drawable_object__object_data(VOX__create__test__object_data__2_squares(1.0f, 0.0f, 0.0f, 0.0f));
+    pattern = VOX__open__drawable_object__object_data(VOX__create__test__object_data__6_squares(1.0f, 0.0f, 0.0f, 0.0f));
 
     // send data to gpu
     VOX__send__game_textures_to_opengl(game_textures);
@@ -1419,7 +1465,7 @@ void VOX__play(VOX__error* error) {
 
     // setup opengl drawing constants
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
+    glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
 
     // run window
     while (VOX__bt__true) {
